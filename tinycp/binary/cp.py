@@ -218,7 +218,7 @@ class OOBConformalClassifier(BaseConformalClassifier):
 
         return average_coverage
 
-    def _evaluate_generalization(self, X, y, alpha=None):
+    def _evaluate_generalization(self, X, y, alpha=None, func=balanced_accuracy_score):
         """
         Measure the generalization gap of the model.
 
@@ -250,6 +250,6 @@ class OOBConformalClassifier(BaseConformalClassifier):
             np.all((nc_score <= qhat).astype(int) == [0, 1], axis=1), 1, 0
         )
 
-        training_error = 1 - balanced_accuracy_score(y_pred, self.y)
-        test_error = 1 - balanced_accuracy_score(self.predict(X, alpha), y)
+        training_error = 1 - func(y_pred, self.y)
+        test_error = 1 - func(self.predict(X, alpha), y)
         return training_error - test_error
