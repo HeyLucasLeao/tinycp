@@ -1,1 +1,2 @@
-from .cp import OOBConformalClassifier
+from .marginal import OOBClassConditionalConformalClassifier
+from .class_cond import OOBClassConditionalConformalClassifier

@@ -17,8 +17,13 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 class BaseConformalClassifier:
     """
-    A modrian class conditional conformal classifier based on Out-of-Bag (OOB) methodology, utilizing a random forest classifier as the underlying learner.
-    This class is inspired by the WrapperClassifier classes from the Crepes library.
+    BaseConformalClassifier
+
+    A base class for conformal prediction using a RandomForestClassifier as the learner
+    and Venn-Abers calibration for confidence estimation.
+    This approach provides valid predictions with a specified significance level (alpha).
+
+    Conformal classifiers aim to quantify uncertainty in predictions.
     """
 
     def __init__(
@@ -55,7 +60,7 @@ class BaseConformalClassifier:
         check_is_fitted(learner, attributes=["oob_decision_function_"])
 
         if learner.n_classes_ > 2:
-            raise ("Learner has more than 2 labels.")
+            raise ValueError("This classifier supports only binary classification.")
 
         self.feature_importances_ = learner.feature_importances_
 
@@ -108,22 +113,26 @@ class BaseConformalClassifier:
 
     def calibrate(self, X, y, minimal=0.2, func=balanced_accuracy_score):
         """
-        Calibrates the alpha value to minimize the error rate
-        using Cost Sensitive Learning methodology, using balanced_accuracy_score.
+        Calibrates the alpha value to minimize error rates.
+
+        The method iterates over a range of alpha values (0.01 to `minimal`) to find the
+        optimal significance level based on the specified metric function.
 
         Parameters:
+        -----------
         X: array-like of shape (n_samples, n_features)
-            The test input samples.
+            Input samples for calibration.
         y: array-like of shape (n_samples,)
-            The true labels for X.
-        minimal: float
-            The minimal value of alpha to consider.
-
-        For each alpha value (0.01, 0.02, ..., minimal), we do the following:
-        - Calculate predictions y_pred using the self.predict(X, alpha) function.
+            True labels.
+        minimal: float, default=0.2
+            Minimum alpha value to consider during calibration.
+        func: callable, default=balanced_accuracy_score
+            Scoring function to optimize.
 
         Returns:
-            The updated instance (self.alpha) with the calibrated alpha value.
+        --------
+        float
+            The optimal alpha value.
         """
 
         alphas = {k: None for k in np.round(np.arange(0.01, minimal + 0.01, 0.01), 2)}
@@ -138,18 +147,22 @@ class BaseConformalClassifier:
 
     def predict(self, X, alpha=None):
         """
-        Predicts the classes for the instances in X.
+        Predicts the classes for the input samples.
 
         Parameters:
-        X: array-like of shape (n_samples, n_features)
-            The input samples.
+        -----------
+        X: np.ndarray of shape (n_samples, n_features)
+            Input samples.
+        alpha: float, optional
+            Significance level. If None, defaults to the classifier's alpha value.
 
         Returns:
-        predictions: array-like of shape (n_samples,)
-            A predicted true class if the model has certainty based on the predefined significance level.
+        --------
+        np.ndarray of shape (n_samples,)
+            Predicted class labels, where 1 indicates the model's certainty.
         """
 
-        alpha = self.alpha if alpha is None else alpha
+        alpha = alpha or self.alpha
 
         y_pred = self.predict_set(X, alpha)
 
@@ -227,7 +240,7 @@ class BaseConformalClassifier:
         pd.DataFrame
             A DataFrame containing the evaluation metrics.
         """
-        alpha = alpha if alpha is not None else self.alpha
+        alpha = alpha or self.alpha
 
         # Helper function for rounding
         def rounded(value):

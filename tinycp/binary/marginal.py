@@ -1,17 +1,18 @@
-from sklearn.metrics import balanced_accuracy_score
+from sklearn.metrics import (
+    balanced_accuracy_score,
+)
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import warnings
 from .base import BaseConformalClassifier
 
-# Suprimir o aviso específico
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class OOBConformalClassifier(BaseConformalClassifier):
+class OOBMarginalConformalClassifier(BaseConformalClassifier):
     """
-    A modrian class conditional conformal classifier based on Out-of-Bag (OOB) methodology, utilizing a random forest classifier as the underlying learner.
-    This class is inspired by the WrapperClassifier classes from the Crepes library.
+    Conformal classifier based on Out-of-Bag (OOB) predictions.
+    Uses RandomForestClassifier and Venn-Abers calibration.
     """
 
     def __init__(
@@ -41,7 +42,6 @@ class OOBConformalClassifier(BaseConformalClassifier):
         """
 
         super().__init__(learner, alpha)
-        self.classes = None
 
     def fit(self, y):
         """
@@ -63,23 +63,38 @@ class OOBConformalClassifier(BaseConformalClassifier):
         """
 
         # Get the probability predictions
+        self.n = len(self.learner.oob_decision_function_)
         y_prob = self.learner.oob_decision_function_
 
         self.calibration_layer.fit(y_prob, y)
         y_prob, _ = self.calibration_layer.predict_proba(y_prob)
-        # We only need the probability for the true class
-        self.n = len(self.learner.oob_decision_function_)
 
+        # We only need the probability for the true class
         y_prob = y_prob[np.arange(self.n), y]
 
-        hinge = self.generate_non_conformity_score(y_prob)
-        self.classes = self.learner.classes_
-
-        # We only need the probability for the true class
-        self.hinge = [hinge[y == c] for c in self.classes]
+        self.hinge = self.generate_non_conformity_score(y_prob)
         self.y = y
 
         return self
+
+    def predict(self, X, alpha=None):
+        """
+        Predicts the classes for the instances in X.
+
+        Parameters:
+        X: array-like of shape (n_samples, n_features)
+            The input samples.
+
+        Returns:
+        predictions: array-like of shape (n_samples,)
+            A predicted true class if the model has certainty based on the predefined significance level.
+        """
+
+        alpha = alpha or self.alpha
+
+        y_pred = self.predict_set(X, alpha)
+
+        return np.where(np.all(y_pred == [0, 1], axis=1), 1, 0)
 
     def generate_conformal_quantile(self, alpha=None):
         """
@@ -109,16 +124,10 @@ class OOBConformalClassifier(BaseConformalClassifier):
 
         """
 
-        if alpha is None:
-            alpha = self.alpha
-
-        qhat = np.zeros(len(self.classes))
+        alpha = alpha or self.alpha
 
         q_level = np.ceil((self.n + 1) * (1 - alpha)) / self.n
-
-        for c in self.classes:
-            qhat[c] = np.quantile(self.hinge[c], q_level, method="higher")
-
+        qhat = np.quantile(self.hinge, q_level, method="higher")
         return qhat
 
     def predict_set(self, X, alpha=None):
@@ -137,18 +146,13 @@ class OOBConformalClassifier(BaseConformalClassifier):
             than or equal to the quantile of the hinge loss distribution at the (n+1)*(1-alpha)/n level.
         """
 
-        if alpha is None:
-            alpha = self.alpha
+        alpha = alpha or self.alpha
 
-        prediction_set = np.zeros((len(X), len(self.classes)))
         y_prob = self.predict_proba(X)
         nc_score = self.generate_non_conformity_score(y_prob)
         qhat = self.generate_conformal_quantile(alpha)
 
-        for c in self.classes:
-            prediction_set[:, c] = (nc_score <= qhat[c])[:, c]
-
-        return prediction_set.astype(int)
+        return (nc_score <= qhat).astype(int)
 
     def predict_p(self, X):
         """
@@ -171,7 +175,7 @@ class OOBConformalClassifier(BaseConformalClassifier):
 
         for i in range(nc_score.shape[0]):
             for j in range(nc_score.shape[1]):
-                numerator = np.sum(self.hinge[j] >= nc_score[i][j]) + 1
+                numerator = np.sum(self.hinge >= nc_score[i][j]) + 1
                 denumerator = self.n + 1
                 p_values[i, j] = numerator / denumerator
 
@@ -194,26 +198,19 @@ class OOBConformalClassifier(BaseConformalClassifier):
             The average coverage over the iterations. It should be close to 1-alpha.
         """
 
-        if alpha is None:
-            alpha = self.alpha
+        alpha = alpha or self.alpha
 
         coverages = np.zeros((iterations,))
         y_prob = self.predict_proba(X)
         scores = 1 - y_prob
         n = int(len(scores) * 0.20)
-        classes = [0, 1]
 
         for i in range(iterations):
             np.random.shuffle(scores)  # shuffle
             calib_scores, val_scores = (scores[:n], scores[n:])  # split
             q_level = np.ceil((n + 1) * (1 - alpha)) / n
-            prediction_set = np.zeros((len(val_scores), len(self.classes)))
-
-            for c in classes:
-                qhat = np.quantile(calib_scores[:, [c]], q_level, method="higher")
-                prediction_set[:, c] = (val_scores <= qhat)[:, c]
-
-            coverages[i] = prediction_set.astype(float).mean()  # see caption
+            qhat = np.quantile(calib_scores, q_level, method="higher")  # calibrate
+            coverages[i] = (val_scores <= qhat).astype(float).mean()  # see caption
             average_coverage = coverages.mean()  # should be close to 1-alpha
 
         return average_coverage
@@ -237,8 +234,7 @@ class OOBConformalClassifier(BaseConformalClassifier):
 
         """
 
-        if alpha is None:
-            alpha = self.alpha
+        alpha = alpha or self.alpha
 
         nc_score = self.generate_non_conformity_score(
             self.learner.oob_decision_function_
@@ -246,12 +242,9 @@ class OOBConformalClassifier(BaseConformalClassifier):
 
         qhat = self.generate_conformal_quantile(alpha)
 
-        prediction_set = np.zeros((len(nc_score), len(self.classes)))
-
-        for c in self.classes:
-            prediction_set[:, c] = (nc_score <= qhat[c])[:, c]
-
-        y_pred = np.where(np.all(prediction_set.astype(int) == [0, 1], axis=1), 1, 0)
+        y_pred = np.where(
+            np.all((nc_score <= qhat).astype(int) == [0, 1], axis=1), 1, 0
+        )
 
         training_error = 1 - func(y_pred, self.y)
         test_error = 1 - func(self.predict(X, alpha), y)
