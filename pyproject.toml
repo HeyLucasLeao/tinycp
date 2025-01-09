@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tinycp"
-version = "0.1.0"
+version = "0.0.1"
 description = "A small toolbox for conformal prediction"
 license = "MIT"
 authors = ["Lucas Leão <heylucasleao@gmail.com>"]
@@ -14,12 +14,14 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pandas = "^2.2.2"
-plotly = "^5.22.0"
-venn-abers = "^1.4.2"
-scikit-learn = "^1.4.2"
-kaleido = "0.2.1"
-nbformat = "5.10.4"
+pandas = "^2.1.0"
+venn-abers = "^1.4.6"
+scikit-learn = "^1.3.0"
+
+[tool.poetry.extras]
+kaleido = ["0.2.1"]
+nbformat = ["5.10.4"]
+plotly = ["5.22.0"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
