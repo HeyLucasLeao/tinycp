@@ -14,8 +14,8 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pandas = "^1.5.3"
-venn-abers = "^1.4.2"
+pandas = ">=1.5.3"
+scikit-learn = ">=1.4.2"
 scikit-learn = "^1.4.2"
 
 [tool.poetry.extras]
