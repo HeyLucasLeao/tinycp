@@ -1,134 +1,72 @@
-Coletando informações do workspace
+# TinyCP
+TinyCP is an experimental Python library for conformal predictions, providing tools to generate valid prediction sets with a specified significance level (alpha).
 
-# Documentação do Projeto CP-Study
+Currently, TinyCP supports Out-of-Bag (OOB) solutions for `RandomForestClassifier` in binary classification problems. For more options and advanced features, consider exploring [Crepes](https://github.com/henrikbostrom/crepes).
 
-## Índice
+## Installation
 
-1. Introdução
-2. Instalação
-3. Estrutura do Projeto
-4. Utilização
-5. Referências
+Install TinyCP using pip:
 
-## Introdução
-
-O projeto **CP-Study** é uma ferramenta para análise e visualização de classificadores conformais binários utilizando a metodologia Out-of-Bag (OOB) com um classificador de floresta aleatória como modelo subjacente. Ele inclui funcionalidades para gerar curvas de eficiência, confiabilidade, histogramas de pontuações previstas, matrizes de confusão e gráficos de densidade de probabilidade Beta.
-
-## Instalação
-
-Para instalar o projeto, siga os passos abaixo:
-
-1. Clone o repositório:
-    ```sh
-    git clone <URL_DO_REPOSITORIO>
-    cd cp-study
-    ```
-
-2. Instale as dependências utilizando o Poetry:
-    ```sh
-    poetry install
-    ```
-
-## Estrutura do Projeto
-
-A estrutura do projeto é a seguinte:
-
-```
-cp-study/
-│
-├── pyproject.toml
-├── tinycp/
-│   ├── binary/
-│   │   ├── __init__.py
-│   │   ├── cp.py
-│   │   └── mcp.py
-│   └── utils/
-│       └── plotly_utils.py
+```bash
+pip install tinycp
 ```
 
-### Arquivos Principais
+## Usage
 
-- **pyproject.toml**: Arquivo de configuração do Poetry, contendo as dependências do projeto.
-- **tinycp/binary/cp.py**: Implementação do classificador conformal binário utilizando a metodologia OOB.
-- **tinycp/binary/mcp.py**: Implementação do classificador conformal binário modificado utilizando a metodologia OOB.
-- **tinycp/utils/plotly_utils.py**: Funções utilitárias para visualização de dados utilizando Plotly.
+### Importing Classes
 
-## Utilização
+Import the conformal classifiers from the `tinycp.classifier` module:
 
-### Classificador Conformal Binário
+```python
+from tinycp.classifier.class_conditional import OOBBinaryClassConditionalConformalClassifier
+from tinycp.classifier.marginal import OOBBinaryMarginalConformalClassifier
+```
 
-Para utilizar o classificador conformal binário, siga os passos abaixo:
+### Example
 
-1. Importe a classe 
+Example usage of `OOBBinaryClassConditionalConformalClassifier`:
 
-WrapperOOBBinaryConformalClassifier
+```python
+from sklearn.ensemble import RandomForestClassifier
+from tinycp.classifier.class_conditional import OOBBinaryClassConditionalConformalClassifier
 
-:
-    ```python
-    from tinycp.binary.cp import WrapperOOBBinaryConformalClassifier
-    ```
+# Create and fit a RandomForestClassifier
+learner = RandomForestClassifier(n_estimators=100, oob_score=True)
+X_train, y_train = ...  # your training data
+learner.fit(X_train, y_train)
 
-2. Treine o classificador com um modelo de floresta aleatória:
-    ```python
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.datasets import make_classification
+# Create and fit the conformal classifier
+conformal_classifier = OOBBinaryClassConditionalConformalClassifier(learner)
+conformal_classifier.fit(y_train)
 
-    # Gerar dados de exemplo
-    X, y = make_classification(n_samples=1000, n_features=20, random_state=42)
+# Make predictions
+X_test = ...  # your test data
+predictions = conformal_classifier.predict(X_test)
+```
 
-    # Treinar o modelo de floresta aleatória
-    rf = RandomForestClassifier(oob_score=True, random_state=42)
-    rf.fit(X, y)
+### Evaluating the Classifier
 
-    # Criar o classificador conformal
-    clf = WrapperOOBBinaryConformalClassifier(rf)
-    clf.fit(y)
-    ```
+Evaluate the performance of the conformal classifier using the `evaluate` method:
 
-3. Faça previsões utilizando o classificador conformal:
-    ```python
-    y_pred = clf.predict(X)
-    y_proba = clf.predict_proba(X)
-    ```
+```python
+results = conformal_classifier.evaluate(X_test, y_test)
+print(results)
+```
 
-### Visualização de Dados
+## Classes
 
-Para gerar visualizações utilizando as funções utilitárias do Plotly, siga os passos abaixo:
+### BaseConformalClassifier
 
-1. Importe as funções do módulo `plotly_utils`:
-    ```python
-    from tinycp.utils.plotly_utils import (
-        efficiency_curve,
-        reliability_curve,
-        histogram,
-        confusion_matrix,
-        beta_pdf_with_cdf_fill
-    )
-    ```
+`BaseConformalClassifier` is a base class for conformal prediction using a RandomForestClassifier and Venn-Abers calibration for confidence estimation.
 
-2. Gere as visualizações desejadas:
-    ```python
-    # Curva de eficiência
-    fig = efficiency_curve(clf, X)
-    
-    # Curva de confiabilidade
-    fig = reliability_curve(clf, X, y)
-    
-    # Histograma de pontuações previstas
-    fig = histogram(clf, X)
-    
-    # Matriz de confusão
-    fig = confusion_matrix(clf, X, y)
-    
-    # Gráfico de densidade de probabilidade Beta
-    fig = beta_pdf_with_cdf_fill(alpha=2, beta_param=5)
-    ```
+### OOBBinaryClassConditionalConformalClassifier
 
-## Referências
+`OOBBinaryClassConditionalConformalClassifier` is a class conditional conformal classifier based on OOB methodology, using a random forest classifier as the learner.
 
-- [Scikit-learn](https://scikit-learn.org/stable/)
-- [Plotly](https://plotly.com/python/)
-- [Poetry](https://python-poetry.org/)
-- [Venn Abers](https://github.com/donlnz/venn-abers)
+### OOBBinaryMarginalConformalClassifier
 
-Para mais informações, consulte a documentação oficial das bibliotecas utilizadas.
+`OOBBinaryMarginalConformalClassifier` is a conformal classifier based on OOB predictions, using RandomForestClassifier and Venn-Abers calibration.
+
+## License
+
+This project is licensed under the MIT License.
