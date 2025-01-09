@@ -18,8 +18,9 @@ pandas = "^2.2.2"
 plotly = "^5.22.0"
 venn-abers = "^1.4.2"
 scikit-learn = "^1.4.2"
-kaleido = "0.2.1"
-nbformat = "5.10.4"
+
+[tool.poetry.extras]
+optional-deps = ["kaleido", "nbformat"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
