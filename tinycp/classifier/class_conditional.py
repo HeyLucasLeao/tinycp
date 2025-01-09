@@ -7,7 +7,7 @@ from .base import BaseConformalClassifier
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class OOBClassConditionalConformalClassifier(BaseConformalClassifier):
+class OOBBinaryClassConditionalConformalClassifier(BaseConformalClassifier):
     """
     A modrian class conditional conformal classifier based on Out-of-Bag (OOB) methodology,
     utilizing a random forest classifier as the underlying learner.

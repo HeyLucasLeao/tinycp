@@ -8,6 +8,7 @@ from sklearn.metrics import (
     brier_score_loss,
     f1_score,
     balanced_accuracy_score,
+    matthews_corrcoef,
 )
 import pandas as pd
 
@@ -111,11 +112,11 @@ class BaseConformalClassifier:
         p_prime, _ = self.calibration_layer.predict_proba(y_score)
         return p_prime
 
-    def calibrate(self, X, y, minimal=0.2, func=balanced_accuracy_score):
+    def calibrate(self, X, y, max_alpha=0.2, func=balanced_accuracy_score):
         """
         Calibrates the alpha value to minimize error rates.
 
-        The method iterates over a range of alpha values (0.01 to `minimal`) to find the
+        The method iterates over a range of alpha values (0.01 to `max_alpha`) to find the
         optimal significance level based on the specified metric function.
 
         Parameters:
@@ -124,8 +125,8 @@ class BaseConformalClassifier:
             Input samples for calibration.
         y: array-like of shape (n_samples,)
             True labels.
-        minimal: float, default=0.2
-            Minimum alpha value to consider during calibration.
+        max_alpha: float, default=0.2
+            Maximum alpha value to consider during calibration.
         func: callable, default=balanced_accuracy_score
             Scoring function to optimize.
 
@@ -135,7 +136,7 @@ class BaseConformalClassifier:
             The optimal alpha value.
         """
 
-        alphas = {k: None for k in np.round(np.arange(0.01, minimal + 0.01, 0.01), 2)}
+        alphas = {k: None for k in np.round(np.arange(0.01, max_alpha + 0.01, 0.01), 2)}
 
         for alpha in alphas:
             y_pred = self.predict(X, alpha)
@@ -261,7 +262,7 @@ class BaseConformalClassifier:
         ece = rounded(self._expected_calibration_error(y, y_prob))
         empirical_coverage = rounded(self._empirical_coverage(X, alpha))
         generalization = rounded(self._evaluate_generalization(X, y, alpha))
-        matthews_corr = rounded(balanced_accuracy_score(y, y_pred))
+        matthews_corr = rounded(matthews_corrcoef(y, y_pred))
         f1 = rounded(f1_score(y, self.predict(X, alpha)))
 
         # Results aggregation
@@ -275,7 +276,7 @@ class BaseConformalClassifier:
             "ece": ece,
             "empirical_coverage": empirical_coverage,
             "generalization": generalization,
-            "balanced_accuracy_score": matthews_corr,
+            "matthews_corrcoef": matthews_corr,
             "f1_score": f1,
             "alpha": alpha,
         }

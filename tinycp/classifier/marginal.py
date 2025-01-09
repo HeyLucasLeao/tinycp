@@ -9,7 +9,7 @@ from .base import BaseConformalClassifier
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class OOBMarginalConformalClassifier(BaseConformalClassifier):
+class OOBBinaryMarginalConformalClassifier(BaseConformalClassifier):
     """
     Conformal classifier based on Out-of-Bag (OOB) predictions.
     Uses RandomForestClassifier and Venn-Abers calibration.
