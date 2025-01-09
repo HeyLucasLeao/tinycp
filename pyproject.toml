@@ -14,13 +14,12 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pandas = "^2.2.2"
-plotly = "^5.22.0"
+pandas = "^1.5.3"
 venn-abers = "^1.4.2"
 scikit-learn = "^1.4.2"
 
 [tool.poetry.extras]
-optional-deps = ["kaleido", "nbformat"]
+optional-deps = ["kaleido", "nbformat", "plotly"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
