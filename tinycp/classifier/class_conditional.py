@@ -17,7 +17,7 @@ class OOBBinaryClassConditionalConformalClassifier(BaseConformalClassifier):
         self,
         learner: RandomForestClassifier,
         alpha: float = 0.05,
-        scoring_func: str = "bm",
+        scoring_func: str = "mcc",
     ):
         """
         Constructs the classifier with a specified learner and a Venn-Abers calibration layer.
@@ -27,7 +27,7 @@ class OOBBinaryClassConditionalConformalClassifier(BaseConformalClassifier):
             The base learner to be used in the classifier.
         alpha: float, default=0.05
             The significance level applied in the classifier.
-        scoring_func: str, default="bm"
+        scoring_func: str, default="mcc"
             Scoring function to optimize. Acceptable values are:
             - "bm": Bookmaker Informedness
             - "mcc": Matthews Correlation Coefficient
