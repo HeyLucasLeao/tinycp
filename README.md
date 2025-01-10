@@ -3,6 +3,10 @@ TinyCP is an experimental Python library for conformal predictions, providing to
 
 For more information on a previous project related to Out-of-Bag (OOB) solutions, visit [this link](https://github.com/HeyLucasLeao/cp-study).
 
+## Changes about previous work
+- `calibrate`: instead of `Balanced Accuracy Score`, it can be calibrated either `Matthews Correlation Coefficient` or `Bookmaker Informedness Score`, for better realibility
+- `evaluate`: scores `bm` and `mcc` for more reability
+
 Currently, TinyCP supports Out-of-Bag (OOB) solutions for `RandomForestClassifier` in binary classification problems. For more options and advanced features, consider exploring [Crepes](https://github.com/henrikbostrom/crepes).
 
 ## Installation
