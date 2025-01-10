@@ -1,15 +1,12 @@
-from sklearn.metrics import (
-    balanced_accuracy_score,
-)
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import warnings
-from .base import BaseConformalClassifier
+from .base import BaseOOBConformalClassifier
 
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class OOBBinaryMarginalConformalClassifier(BaseConformalClassifier):
+class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
     """
     Conformal classifier based on Out-of-Bag (OOB) predictions.
     Uses RandomForestClassifier and Venn-Abers calibration.
@@ -19,6 +16,7 @@ class OOBBinaryMarginalConformalClassifier(BaseConformalClassifier):
         self,
         learner: RandomForestClassifier,
         alpha: float = 0.05,
+        scoring_func: str = "mcc",
     ):
         """
         Constructs the classifier with a specified learner and a Venn-Abers calibration layer.
@@ -26,6 +24,12 @@ class OOBBinaryMarginalConformalClassifier(BaseConformalClassifier):
         Parameters:
         learner: RandomForestClassifier
             The base learner to be used in the classifier.
+        alpha: float, default=0.05
+            The significance level applied in the classifier.
+        scoring_func: str, default="mcc"
+            Scoring function to optimize. Acceptable values are:
+            - "bm": Bookmaker Informedness
+            - "mcc": Matthews Correlation Coefficient
 
         Attributes:
         learner: RandomForestClassifier
@@ -41,7 +45,7 @@ class OOBBinaryMarginalConformalClassifier(BaseConformalClassifier):
             The significance level applied in the classifier.
         """
 
-        super().__init__(learner, alpha)
+        super().__init__(learner, alpha, scoring_func)
 
     def fit(self, y):
         """
@@ -215,7 +219,7 @@ class OOBBinaryMarginalConformalClassifier(BaseConformalClassifier):
 
         return average_coverage
 
-    def _evaluate_generalization(self, X, y, alpha=None, func=balanced_accuracy_score):
+    def _evaluate_generalization(self, X, y, alpha=None):
         """
         Measure the generalization gap of the model.
 
@@ -246,6 +250,6 @@ class OOBBinaryMarginalConformalClassifier(BaseConformalClassifier):
             np.all((nc_score <= qhat).astype(int) == [0, 1], axis=1), 1, 0
         )
 
-        training_error = 1 - func(y_pred, self.y)
-        test_error = 1 - func(self.predict(X, alpha), y)
+        training_error = self.scoring_func(y_pred, self.y)
+        test_error = self.scoring_func(self.predict(X, alpha), y)
         return training_error - test_error
