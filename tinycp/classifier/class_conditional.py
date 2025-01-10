@@ -1,12 +1,12 @@
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import warnings
-from .base import BaseConformalClassifier
+from .base import BaseOOBConformalClassifier
 
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class OOBBinaryClassConditionalConformalClassifier(BaseConformalClassifier):
+class OOBBinaryClassConditionalConformalClassifier(BaseOOBConformalClassifier):
     """
     A modrian class conditional conformal classifier based on Out-of-Bag (OOB) methodology,
     utilizing a random forest classifier as the underlying learner.

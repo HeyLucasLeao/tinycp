@@ -15,7 +15,7 @@ import pandas as pd
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class BaseConformalClassifier:
+class BaseOOBConformalClassifier:
     """
     BaseConformalClassifier
 

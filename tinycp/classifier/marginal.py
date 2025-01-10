@@ -1,12 +1,12 @@
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import warnings
-from .base import BaseConformalClassifier
+from .base import BaseOOBConformalClassifier
 
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class OOBBinaryMarginalConformalClassifier(BaseConformalClassifier):
+class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
     """
     Conformal classifier based on Out-of-Bag (OOB) predictions.
     Uses RandomForestClassifier and Venn-Abers calibration.
