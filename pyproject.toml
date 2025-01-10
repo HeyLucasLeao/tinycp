@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tinycp"
-version = "0.0.1"
+version = "0.0.2"
 description = "A small toolbox for conformal prediction"
 license = "MIT"
 authors = ["Lucas Leão <heylucasleao@gmail.com>"]
