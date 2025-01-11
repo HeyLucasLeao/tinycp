@@ -1,6 +1,5 @@
 import numpy as np
 from typing import List
-import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.calibration import calibration_curve
@@ -9,7 +8,7 @@ from sklearn.metrics import confusion_matrix as sklearn_confusion_matrix
 from scipy.stats import beta
 
 
-def efficiency_curve(clf, X: np.ndarray, fig_type=None):
+def efficiency_curve(clf, X: np.ndarray, fig_type=None, width=800, height=400):
     """
     Generates an efficiency and validity curve for a classifier.
 
@@ -31,41 +30,55 @@ def efficiency_curve(clf, X: np.ndarray, fig_type=None):
             X (np.ndarray): Input data.
 
         Returns:
-            List: List of dictionaries containing efficiency and validity scores for each error rate.
+            Tuple: Arrays for error_rate, efficiency_rate, and validity_rate.
         """
 
-        error_rate = {
-            k: {} for k in [0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05]
-        }
-        for error in error_rate:
+        error_rate = np.asarray([0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05])
+        efficiency_rate = np.zeros(error_rate.shape)
+        validity_rate = np.zeros(error_rate.shape)
+        for i, error in enumerate(error_rate):
             predict_set = clf.predict_set(X, alpha=error)
-            error_rate[error]["efficiency"] = np.sum(
-                [np.sum(p) == 1 for p in predict_set]
-            ) / len(predict_set)
-            error_rate[error]["validity"] = np.sum(predict_set) / len(predict_set)
-        return error_rate
+            efficiency_rate[i] = np.sum([np.sum(p) == 1 for p in predict_set]) / len(
+                predict_set
+            )
+            validity_rate[i] = np.sum(predict_set) / len(predict_set)
+        return error_rate, efficiency_rate, validity_rate
 
-    error_rate = get_error_metrics(clf, X)
+    error_rate, efficiency_rate, validity_rate = get_error_metrics(clf, X)
 
-    df = pd.DataFrame(error_rate).T
+    fig = go.Figure()
 
     # Create the bar chart
-    fig = px.line(
-        df,
-        x=df.index,
-        y=["efficiency", "validity"],
-        labels={"value": "Score"},
-        markers=True,
+    fig.add_trace(
+        go.Scatter(
+            x=error_rate,
+            y=efficiency_rate,
+            mode="lines+markers",
+            name="efficicency",
+            line=dict(color="darkblue"),
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=error_rate,
+            y=validity_rate,
+            mode="lines+markers",
+            name="validity",
+            line=dict(color="orange"),
+        )
+    )
+
+    fig.update_layout(
         title="Efficiency & Validity Curve",
-        color_discrete_sequence=["darkblue", "orange"],
-        width=800,
-        height=400,
+        xaxis_title="Error Rate",
+        yaxis_title="Score",
+        legend=dict(title="Metric"),
+        width=width,
+        height=height,
     )
     fig.update_layout(hovermode="x")
     fig.update_traces(hovertemplate="%{y}")
-    fig.update_layout(legend=dict(title="Metric"))
-    fig.update_yaxes(title_text="Score")
-    fig.update_xaxes(title_text="Error Rate")
     return fig.show(fig_type)
 
 

@@ -256,6 +256,6 @@ class OOBBinaryClassConditionalConformalClassifier(BaseOOBConformalClassifier):
 
         y_pred = np.where(np.all(prediction_set.astype(int) == [0, 1], axis=1), 1, 0)
 
-        training_error = self.scoring_func(y_pred, self.y)
-        test_error = self.scoring_func(self.predict(X, alpha), y)
+        training_error = 1 - self.scoring_func(y_pred, self.y)
+        test_error = 1 - self.scoring_func(self.predict(X, alpha), y)
         return training_error - test_error

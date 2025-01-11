@@ -3,13 +3,7 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.ensemble import RandomForestClassifier
 import warnings
 import numpy as np
-from sklearn.metrics import (
-    log_loss,
-    f1_score,
-    balanced_accuracy_score,
-    matthews_corrcoef,
-)
-import pandas as pd
+import sklearn.metrics
 
 # Suprimir o aviso específico
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
@@ -80,13 +74,13 @@ class BaseOOBConformalClassifier:
         """
         Calculate the Matthews correlation coefficient (MCC) for the given true and predicted labels.
         """
-        return matthews_corrcoef(y, y_pred)
+        return sklearn.metrics.matthews_corrcoef(y, y_pred)
 
     def _bookmaker_informedness(self, y, y_pred):
         """
         Calculate the bookmaker informedness score for the given true and predicted labels.
         """
-        return balanced_accuracy_score(y, y_pred, adjusted=True)
+        return sklearn.metrics.balanced_accuracy_score(y, y_pred, adjusted=True)
 
     def _select_scoring_function(self, scoring_func):
         """
@@ -96,7 +90,7 @@ class BaseOOBConformalClassifier:
         if scoring_func == "bm":
             func = self._bookmaker_informedness
         elif scoring_func == "mcc":
-            func = matthews_corrcoef
+            func = sklearn.metrics.matthews_corrcoef
         else:
             raise ValueError("Invalid metric function. Please use 'bm' or 'mcc'.")
         return func
@@ -280,7 +274,7 @@ class BaseOOBConformalClassifier:
 
         # Helper function for rounding
         def rounded(value):
-            return round(value, 3)
+            return np.round(value, 3)
 
         # Predictions and probabilities
         y_prob = self.predict_proba(X)
@@ -288,32 +282,32 @@ class BaseOOBConformalClassifier:
         predict_set = self.predict_set(X, alpha)
 
         # Metrics calculation
+        empirical_coverage = rounded(self._empirical_coverage(X, alpha))
         one_c = rounded(np.mean([np.sum(p) == 1 for p in predict_set]))
         avg_c = rounded(np.mean([np.sum(p) for p in predict_set]))
         empty = rounded(np.mean([np.sum(p) == 0 for p in predict_set]))
         error = rounded(1 - np.mean(predict_set[np.arange(len(y)), y]))
-        log_loss_value = rounded(log_loss(y, y_prob[:, 1]))
+        log_loss = rounded(sklearn.metrics.log_loss(y, y_prob[:, 1]))
         ece = rounded(self._expected_calibration_error(y, y_prob))
-        empirical_coverage = rounded(self._empirical_coverage(X, alpha))
         generalization = rounded(self._evaluate_generalization(X, y, alpha))
         bookmaker_informedness = rounded(self._bookmaker_informedness(y, y_pred))
-        matthews_corr = rounded(matthews_corrcoef(y, y_pred))
-        f1 = rounded(f1_score(y, self.predict(X, alpha)))
+        matthews_corr = rounded(sklearn.metrics.matthews_corrcoef(y, y_pred))
+        f1 = rounded(sklearn.metrics.f1_score(y, self.predict(X, alpha)))
 
         # Results aggregation
         results = {
+            "alpha": alpha,
+            "empirical_coverage": empirical_coverage,
             "one_c": one_c,
             "avg_c": avg_c,
             "empty": empty,
             "error": error,
-            "log_loss": log_loss_value,
+            "log_loss": log_loss,
             "ece": ece,
-            "empirical_coverage": empirical_coverage,
-            "generalization": generalization,
             "bm": bookmaker_informedness,
             "mcc": matthews_corr,
-            "f1_score": f1,
-            "alpha": alpha,
+            "f1": f1,
+            "generalization": generalization,
         }
 
-        return pd.DataFrame([results])
+        return results

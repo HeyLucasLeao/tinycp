@@ -20,7 +20,7 @@ pip install tinycp
 > **Note:** If you want to enable plotting capabilities, you need to install the extras using Poetry:
 
 ```bash
-poetry install --all-extras
+poetry install --E plot
 ```
 
 ## Usage
