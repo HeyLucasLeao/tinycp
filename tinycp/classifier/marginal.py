@@ -76,25 +76,6 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
 
         return self
 
-    def predict(self, X, alpha=None):
-        """
-        Predicts the classes for the instances in X.
-
-        Parameters:
-        X: array-like of shape (n_samples, n_features)
-            The input samples.
-
-        Returns:
-        predictions: array-like of shape (n_samples,)
-            A predicted true class if the model has certainty based on the predefined significance level.
-        """
-
-        alpha = self._get_alpha(alpha)
-
-        prediction_set = self.predict_set(X, alpha)
-
-        return self._compute_prediction(prediction_set)
-
     def _compute_qhat(self, ncscore, q_level):
         """
         Compute the q-hat value based on the nonconformity scores and the quantile level.
