@@ -4,12 +4,13 @@ from sklearn.ensemble import RandomForestClassifier
 import warnings
 import numpy as np
 import sklearn.metrics
+from abc import ABC, abstractmethod
 
 # Suprimir o aviso específico
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class BaseOOBConformalClassifier:
+class BaseOOBConformalClassifier(ABC):
     """
     BaseConformalClassifier
 
@@ -68,6 +69,44 @@ class BaseOOBConformalClassifier:
         self.n = None
         self.y = None
 
+    @abstractmethod
+    def fit(self, y):
+        """
+        Fits the classifier to the training data.
+        """
+        pass
+
+    @abstractmethod
+    def predict_set(self, X, alpha=None):
+        """
+        Generate a prediction set for the given input.
+        This method must be implemented by subclasses.
+        """
+        pass
+
+    @abstractmethod
+    def _compute_qhat(self, ncscore, q_level):
+        """
+        Compute the q-hat value based on the nonconformity scores and the quantile level.
+        """
+        pass
+
+    @abstractmethod
+    def _compute_set(self, ncscore, qhat):
+        """
+        Compute a set based on the given ncscore and qhat.
+        """
+        pass
+
+    def _compute_prediction(self, prediction_set):
+        """
+        Compute the prediction based on the given prediction set.
+
+        This method evaluates each row in the prediction set and returns 1 if all elements
+        in the row match the pattern [0, 1], otherwise returns 0.
+        """
+        return np.where(np.all(prediction_set == [0, 1], axis=1), 1, 0)
+
     def _bookmaker_informedness(self, y, y_pred):
         """
         Calculate the bookmaker informedness score for the given true and predicted labels.
@@ -97,25 +136,42 @@ class BaseOOBConformalClassifier:
 
         This function calculates the non-conformity score for conformal prediction
         using the hinge loss approach.
+        """
+        return 1 - y_prob
+
+    def generate_conformal_quantile(self, alpha=None):
+        """
+        Generates the conformal quantile for conformal prediction.
+
+        This function calculates the conformal quantile based on the non-conformity scores
+        of the true label probabilities. The quantile is used as a threshold
+        to determine the prediction set in conformal prediction.
 
         Parameters:
         -----------
-        y_prob : array-like of shape (n_samples,) or (n_samples, n_classes)
-            The predicted probabilities for each class.
+        alpha : float, optional
+            The significance level for conformal prediction. If None, uses the value
+            of self.alpha.
 
         Returns:
         --------
-        array-like
-            The non-conformity scores, where higher values indicate greater
-            non-conformity.
+        float
+            The calculated conformal quantile.
 
         Notes:
         ------
-        - This implementation assumes that y_prob contains probabilities and
-          not raw model outputs.
+        - The quantile is calculated as the (n+1)*(1-alpha)/n percentile of the non-conformity
+          scores, where n is the number of calibration samples.
+        - This method uses the self.hinge attribute, which should contain the non-conformity
+          scores of the calibration samples.
 
         """
-        return 1 - y_prob
+
+        alpha = self._get_alpha(alpha)
+
+        q_level = np.ceil((self.n + 1) * (1 - alpha)) / self.n
+
+        return self._compute_qhat(self.hinge, q_level)
 
     def predict_proba(self, X):
         """
@@ -192,9 +248,9 @@ class BaseOOBConformalClassifier:
 
         alpha = self._get_alpha(alpha)
 
-        y_pred = self.predict_set(X, alpha)
+        prediction_set = self.predict_set(X, alpha)
 
-        return np.where(np.all(y_pred == [0, 1], axis=1), 1, 0)
+        return self._compute_prediction(prediction_set)
 
     def _expected_calibration_error(self, y, y_prob, M=5):
         """
@@ -254,32 +310,41 @@ class BaseOOBConformalClassifier:
 
     def _evaluate_generalization(self, X, y, alpha=None):
         """
-        Measure the generalization gap of the model.
+        Evaluate the generalization gap of the conformal classifier.
 
-        The generalization gap indicates how well the model generalizes
-        to unseen data. It is calculated as the difference between the
-        error on the training set and the error on the test set.
+        The generalization gap quantifies the difference in performance
+        between the training and test datasets. A smaller gap indicates
+        better generalization to unseen data, while a larger gap suggests
+        potential overfitting. It is calculated as the difference between
+        the error rate on the training set and the error rate on the test set.
 
         Parameters:
-        X (array-like): Features of the test set
-        y (array-like): Labels of the test set
-        alpha (float, optional): Significance level for conformal prediction.
-                                 If None, uses the default value.
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Input features of the test set.
+        y : array-like of shape (n_samples,)
+            True labels corresponding to the test set.
+        alpha : float, optional
+            Significance level for conformal prediction. If None, the value
+            of `self.alpha` is used.
 
         Returns:
-        float: The generalization gap
-
+        -------
+        float
+            The generalization gap, calculated as:
+            (Training Error - Test Error).
         """
 
         alpha = self._get_alpha(alpha)
 
-        nc_score = self.generate_non_conformity_score(
+        ncscore = self.generate_non_conformity_score(
             self.learner.oob_decision_function_
         )
 
         qhat = self.generate_conformal_quantile(alpha)
 
-        y_pred = self._compute_eval_y_pred(nc_score, qhat)
+        prediction_set = self._compute_set(ncscore, qhat)
+        y_pred = self._compute_prediction(prediction_set)
 
         training_error = 1 - sklearn.metrics.balanced_accuracy_score(
             y_pred, self.y, adjusted=False
@@ -289,22 +354,78 @@ class BaseOOBConformalClassifier:
         )
         return training_error - test_error
 
-    def evaluate(self, X, y, alpha=None):
+    def _shuffle(self, scores, n):
         """
-        Evaluates the performance of the conformal classifier on the given test data and labels.
+        Shuffle the given scores and split them into calibration and validation sets.
+        """
+        np.random.shuffle(scores)  # shuffle
+        calib_scores, val_scores = (scores[:n], scores[n:])  # split
+        return calib_scores, val_scores
+
+    def _empirical_coverage(self, X, alpha=None, iterations=100):
+        """
+        Generate the empirical coverage of the classifier.
 
         Parameters:
         X: array-like of shape (n_samples, n_features)
-            The test input samples.
-        y: array-like of shape (n_samples,)
-            The true labels for X.
+            The input samples.
         alpha: float, default=None
             The significance level. If None, the value of self.alpha is used.
+        iterations: int, default=100
+            The number of iterations for the empirical coverage calculation.
 
         Returns:
-        pd.DataFrame
-            A DataFrame containing the evaluation metrics.
+        average_coverage: float
+            The average coverage over the iterations. It should be close to 1-alpha.
         """
+
+        alpha = self._get_alpha(alpha)
+
+        coverages = np.zeros((iterations,))
+        y_prob = self.predict_proba(X)
+        scores = 1 - y_prob
+        n = int(len(scores) * 0.20)
+
+        for i in range(iterations):
+            calib_scores, val_scores = self._shuffle(scores, n)
+            q_level = np.ceil((n + 1) * (1 - alpha)) / n
+            qhat = self._compute_qhat(calib_scores, q_level)
+            coverages[i] = self._compute_set(val_scores, qhat).mean()  # see caption
+            average_coverage = coverages.mean()  # should be close to 1-alpha
+
+        return average_coverage
+
+    def evaluate(self, X, y, alpha=None):
+        """
+        Evaluate the classifier on the given dataset.
+
+        Parameters:
+        -----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples.
+        y : array-like of shape (n_samples,)
+            The true labels for X.
+        alpha : float, optional
+            The significance level for prediction sets. If None, a default value is used.
+
+        Returns:
+        --------
+        results : dict
+            A dictionary containing the evaluation metrics:
+            - "alpha": The significance level used.
+            - "empirical_coverage": The empirical coverage of the prediction sets.
+            - "one_c": The proportion of prediction sets containing exactly one element.
+            - "avg_c": The average size of the prediction sets.
+            - "empty": The proportion of empty prediction sets.
+            - "error": The classification error rate.
+            - "log_loss": The log loss of the predictions.
+            - "ece": The expected calibration error.
+            - "bm": The bookmaker informedness.
+            - "mcc": The Matthews correlation coefficient.
+            - "f1": The F1 score.
+            - "generalization": The generalization error.
+        """
+
         alpha = self._get_alpha(alpha)
 
         # Helper function for rounding

@@ -25,10 +25,6 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
             The base learner to be used in the classifier.
         alpha: float, default=0.05
             The significance level applied in the classifier.
-        scoring_func: str, default="mcc"
-            Scoring function to optimize. Acceptable values are:
-            - "bm": Bookmaker Informedness
-            - "mcc": Matthews Correlation Coefficient
 
         Attributes:
         learner: RandomForestClassifier
@@ -95,43 +91,21 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
 
         alpha = self._get_alpha(alpha)
 
-        y_pred = self.predict_set(X, alpha)
+        prediction_set = self.predict_set(X, alpha)
 
-        return np.where(np.all(y_pred == [0, 1], axis=1), 1, 0)
+        return self._compute_prediction(prediction_set)
 
-    def generate_conformal_quantile(self, alpha=None):
+    def _compute_qhat(self, ncscore, q_level):
         """
-        Generates the conformal quantile for conformal prediction.
-
-        This function calculates the conformal quantile based on the non-conformity scores
-        of the true label probabilities. The quantile is used as a threshold
-        to determine the prediction set in conformal prediction.
-
-        Parameters:
-        -----------
-        alpha : float, optional
-            The significance level for conformal prediction. If None, uses the value
-            of self.alpha.
-
-        Returns:
-        --------
-        float
-            The calculated conformal quantile.
-
-        Notes:
-        ------
-        - The quantile is calculated as the (n+1)*(1-alpha)/n percentile of the non-conformity
-          scores, where n is the number of calibration samples.
-        - This method uses the self.hinge attribute, which should contain the non-conformity
-          scores of the calibration samples.
-
+        Compute the q-hat value based on the nonconformity scores and the quantile level.
         """
+        return np.quantile(ncscore, q_level, method="higher")
 
-        alpha = self._get_alpha(alpha)
-
-        q_level = np.ceil((self.n + 1) * (1 - alpha)) / self.n
-        qhat = np.quantile(self.hinge, q_level, method="higher")
-        return qhat
+    def _compute_set(self, ncscore, qhat):
+        """
+        Compute a predict set based on the given ncscore and qhat.
+        """
+        return (ncscore <= qhat).astype(int)
 
     def predict_set(self, X, alpha=None):
         """
@@ -152,10 +126,10 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
         alpha = self._get_alpha(alpha)
 
         y_prob = self.predict_proba(X)
-        nc_score = self.generate_non_conformity_score(y_prob)
+        ncscore = self.generate_non_conformity_score(y_prob)
         qhat = self.generate_conformal_quantile(alpha)
 
-        return (nc_score <= qhat).astype(int)
+        return self._compute_set(ncscore, qhat)
 
     def predict_p(self, X):
         """
@@ -173,54 +147,13 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
 
         """
         y_prob = self.predict_proba(X)
-        nc_score = self.generate_non_conformity_score(y_prob)
-        p_values = np.zeros_like(nc_score)
+        ncscore = self.generate_non_conformity_score(y_prob)
+        p_values = np.zeros_like(ncscore)
 
-        for i in range(nc_score.shape[0]):
-            for j in range(nc_score.shape[1]):
-                numerator = np.sum(self.hinge >= nc_score[i][j]) + 1
+        for i in range(ncscore.shape[0]):
+            for j in range(ncscore.shape[1]):
+                numerator = np.sum(self.hinge >= ncscore[i][j]) + 1
                 denumerator = self.n + 1
                 p_values[i, j] = numerator / denumerator
 
         return p_values
-
-    def _empirical_coverage(self, X, alpha=None, iterations=100):
-        """
-        Generate the empirical coverage of the classifier.
-
-        Parameters:
-        X: array-like of shape (n_samples, n_features)
-            The input samples.
-        alpha: float, default=None
-            The significance level. If None, the value of self.alpha is used.
-        iterations: int, default=100
-            The number of iterations for the empirical coverage calculation.
-
-        Returns:
-        average_coverage: float
-            The average coverage over the iterations. It should be close to 1-alpha.
-        """
-
-        alpha = self._get_alpha(alpha)
-
-        coverages = np.zeros((iterations,))
-        y_prob = self.predict_proba(X)
-        scores = 1 - y_prob
-        n = int(len(scores) * 0.20)
-
-        for i in range(iterations):
-            np.random.shuffle(scores)  # shuffle
-            calib_scores, val_scores = (scores[:n], scores[n:])  # split
-            q_level = np.ceil((n + 1) * (1 - alpha)) / n
-            qhat = np.quantile(calib_scores, q_level, method="higher")  # calibrate
-            coverages[i] = (val_scores <= qhat).astype(float).mean()  # see caption
-            average_coverage = coverages.mean()  # should be close to 1-alpha
-
-        return average_coverage
-
-    def _compute_eval_y_pred(self, nc_score, qhat):
-        """Compute predictions based on non-conformity score and quantile."""
-        y_pred = np.where(
-            np.all((nc_score <= qhat).astype(int) == [0, 1], axis=1), 1, 0
-        )
-        return y_pred
