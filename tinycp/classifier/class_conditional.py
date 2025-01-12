@@ -17,7 +17,6 @@ class OOBBinaryClassConditionalConformalClassifier(BaseOOBConformalClassifier):
         self,
         learner: RandomForestClassifier,
         alpha: float = 0.05,
-        scoring_func: str = "mcc",
     ):
         """
         Constructs the classifier with a specified learner and a Venn-Abers calibration layer.
@@ -46,7 +45,7 @@ class OOBBinaryClassConditionalConformalClassifier(BaseOOBConformalClassifier):
             The significance level applied in the classifier.
         """
 
-        super().__init__(learner, alpha, scoring_func)
+        super().__init__(learner, alpha)
         self.classes = None
 
     def fit(self, y):
@@ -116,7 +115,7 @@ class OOBBinaryClassConditionalConformalClassifier(BaseOOBConformalClassifier):
 
         """
 
-        alpha = alpha or self.alpha
+        alpha = self._get_alpha(alpha)
 
         qhat = np.zeros(len(self.classes))
 
@@ -143,7 +142,7 @@ class OOBBinaryClassConditionalConformalClassifier(BaseOOBConformalClassifier):
             than or equal to the quantile of the hinge loss distribution at the (n+1)*(1-alpha)/n level.
         """
 
-        alpha = alpha or self.alpha
+        alpha = self._get_alpha(alpha)
 
         prediction_set = np.zeros((len(X), len(self.classes)))
         y_prob = self.predict_proba(X)
@@ -199,7 +198,7 @@ class OOBBinaryClassConditionalConformalClassifier(BaseOOBConformalClassifier):
             The average coverage over the iterations. It should be close to 1-alpha.
         """
 
-        alpha = alpha or self.alpha
+        alpha = self._get_alpha(alpha)
 
         coverages = np.zeros((iterations,))
         y_prob = self.predict_proba(X)
@@ -222,40 +221,9 @@ class OOBBinaryClassConditionalConformalClassifier(BaseOOBConformalClassifier):
 
         return average_coverage
 
-    def _evaluate_generalization(self, X, y, alpha=None):
-        """
-        Measure the generalization gap of the model.
-
-        The generalization gap indicates how well the model generalizes
-        to unseen data. It is calculated as the difference between the
-        error on the training set and the error on the test set.
-
-        Parameters:
-        X (array-like): Features of the test set
-        y (array-like): Labels of the test set
-        alpha (float, optional): Significance level for conformal prediction.
-                                 If None, uses the default value.
-
-        Returns:
-        float: The generalization gap
-
-        """
-
-        alpha = alpha or self.alpha
-
-        nc_score = self.generate_non_conformity_score(
-            self.learner.oob_decision_function_
-        )
-
-        qhat = self.generate_conformal_quantile(alpha)
-
+    def _compute_eval_y_pred(self, nc_score, qhat):
+        """Compute predictions based on non-conformity score and quantile."""
         prediction_set = np.zeros((len(nc_score), len(self.classes)))
-
         for c in self.classes:
             prediction_set[:, c] = (nc_score <= qhat[c])[:, c]
-
-        y_pred = np.where(np.all(prediction_set.astype(int) == [0, 1], axis=1), 1, 0)
-
-        training_error = 1 - self.scoring_func(y_pred, self.y)
-        test_error = 1 - self.scoring_func(self.predict(X, alpha), y)
-        return training_error - test_error
+        return np.where(np.all(prediction_set.astype(int) == [0, 1], axis=1), 1, 0)

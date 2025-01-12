@@ -16,7 +16,6 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
         self,
         learner: RandomForestClassifier,
         alpha: float = 0.05,
-        scoring_func: str = "mcc",
     ):
         """
         Constructs the classifier with a specified learner and a Venn-Abers calibration layer.
@@ -45,7 +44,7 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
             The significance level applied in the classifier.
         """
 
-        super().__init__(learner, alpha, scoring_func)
+        super().__init__(learner, alpha)
 
     def fit(self, y):
         """
@@ -94,7 +93,7 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
             A predicted true class if the model has certainty based on the predefined significance level.
         """
 
-        alpha = alpha or self.alpha
+        alpha = self._get_alpha(alpha)
 
         y_pred = self.predict_set(X, alpha)
 
@@ -128,7 +127,7 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
 
         """
 
-        alpha = alpha or self.alpha
+        alpha = self._get_alpha(alpha)
 
         q_level = np.ceil((self.n + 1) * (1 - alpha)) / self.n
         qhat = np.quantile(self.hinge, q_level, method="higher")
@@ -150,7 +149,7 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
             than or equal to the quantile of the hinge loss distribution at the (n+1)*(1-alpha)/n level.
         """
 
-        alpha = alpha or self.alpha
+        alpha = self._get_alpha(alpha)
 
         y_prob = self.predict_proba(X)
         nc_score = self.generate_non_conformity_score(y_prob)
@@ -202,7 +201,7 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
             The average coverage over the iterations. It should be close to 1-alpha.
         """
 
-        alpha = alpha or self.alpha
+        alpha = self._get_alpha(alpha)
 
         coverages = np.zeros((iterations,))
         y_prob = self.predict_proba(X)
@@ -219,37 +218,9 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
 
         return average_coverage
 
-    def _evaluate_generalization(self, X, y, alpha=None):
-        """
-        Measure the generalization gap of the model.
-
-        The generalization gap indicates how well the model generalizes
-        to unseen data. It is calculated as the difference between the
-        error on the training set and the error on the test set.
-
-        Parameters:
-        X (array-like): Features of the test set
-        y (array-like): Labels of the test set
-        alpha (float, optional): Significance level for conformal prediction.
-                                 If None, uses the default value.
-
-        Returns:
-        float: The generalization gap
-
-        """
-
-        alpha = alpha or self.alpha
-
-        nc_score = self.generate_non_conformity_score(
-            self.learner.oob_decision_function_
-        )
-
-        qhat = self.generate_conformal_quantile(alpha)
-
+    def _compute_eval_y_pred(self, nc_score, qhat):
+        """Compute predictions based on non-conformity score and quantile."""
         y_pred = np.where(
             np.all((nc_score <= qhat).astype(int) == [0, 1], axis=1), 1, 0
         )
-
-        training_error = 1 - self.scoring_func(y_pred, self.y)
-        test_error = 1 - self.scoring_func(self.predict(X, alpha), y)
-        return training_error - test_error
+        return y_pred

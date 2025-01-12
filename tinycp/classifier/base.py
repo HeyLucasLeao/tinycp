@@ -24,7 +24,6 @@ class BaseOOBConformalClassifier:
         self,
         learner: RandomForestClassifier,
         alpha: float = 0.05,
-        scoring_func: str = "bm",
     ):
         """
         Constructs the classifier with a specified learner and a Venn-Abers calibration layer.
@@ -56,7 +55,6 @@ class BaseOOBConformalClassifier:
         self.learner = learner
         self.alpha = alpha
         self.calibration_layer = VennAbers()
-        self.scoring_func = self._select_scoring_function(scoring_func)
 
         # Ensure the learner is fitted
         check_is_fitted(learner, attributes=["oob_decision_function_"])
@@ -69,12 +67,6 @@ class BaseOOBConformalClassifier:
         self.hinge = None
         self.n = None
         self.y = None
-
-    def _matthews_corrcoef(self, y, y_pred):
-        """
-        Calculate the Matthews correlation coefficient (MCC) for the given true and predicted labels.
-        """
-        return sklearn.metrics.matthews_corrcoef(y, y_pred)
 
     def _bookmaker_informedness(self, y, y_pred):
         """
@@ -94,6 +86,10 @@ class BaseOOBConformalClassifier:
         else:
             raise ValueError("Invalid metric function. Please use 'bm' or 'mcc'.")
         return func
+
+    def _get_alpha(self, alpha):
+        """Helper to retrieve the alpha value."""
+        return alpha or self.alpha
 
     def generate_non_conformity_score(self, y_prob):
         """
@@ -138,7 +134,7 @@ class BaseOOBConformalClassifier:
         p_prime, _ = self.calibration_layer.predict_proba(y_score)
         return p_prime
 
-    def calibrate(self, X, y, max_alpha=0.2):
+    def calibrate(self, X, y, max_alpha=0.2, func="mcc"):
         """
         Calibrates the alpha value to minimize error rates.
 
@@ -165,11 +161,13 @@ class BaseOOBConformalClassifier:
             The optimal alpha value.
         """
 
+        scoring_func = self._select_scoring_function(func)
+
         alphas = {k: None for k in np.round(np.arange(0.01, max_alpha + 0.01, 0.01), 2)}
 
         for alpha in alphas:
             y_pred = self.predict(X, alpha)
-            alphas[alpha] = self.scoring_func(y, y_pred)
+            alphas[alpha] = scoring_func(y, y_pred)
 
         self.alpha = max(alphas, key=alphas.get)
 
@@ -192,7 +190,7 @@ class BaseOOBConformalClassifier:
             Predicted class labels, where 1 indicates the model's certainty.
         """
 
-        alpha = alpha or self.alpha
+        alpha = self._get_alpha(alpha)
 
         y_pred = self.predict_set(X, alpha)
 
@@ -254,6 +252,43 @@ class BaseOOBConformalClassifier:
                 ece += np.abs(avg_pred - avg_confidence_in_bin) * prob_in_bin
         return ece
 
+    def _evaluate_generalization(self, X, y, alpha=None):
+        """
+        Measure the generalization gap of the model.
+
+        The generalization gap indicates how well the model generalizes
+        to unseen data. It is calculated as the difference between the
+        error on the training set and the error on the test set.
+
+        Parameters:
+        X (array-like): Features of the test set
+        y (array-like): Labels of the test set
+        alpha (float, optional): Significance level for conformal prediction.
+                                 If None, uses the default value.
+
+        Returns:
+        float: The generalization gap
+
+        """
+
+        alpha = self._get_alpha(alpha)
+
+        nc_score = self.generate_non_conformity_score(
+            self.learner.oob_decision_function_
+        )
+
+        qhat = self.generate_conformal_quantile(alpha)
+
+        y_pred = self._compute_eval_y_pred(nc_score, qhat)
+
+        training_error = 1 - sklearn.metrics.balanced_accuracy_score(
+            y_pred, self.y, adjusted=False
+        )
+        test_error = 1 - sklearn.metrics.balanced_accuracy_score(
+            self.predict(X, alpha), y, adjusted=False
+        )
+        return training_error - test_error
+
     def evaluate(self, X, y, alpha=None):
         """
         Evaluates the performance of the conformal classifier on the given test data and labels.
@@ -270,7 +305,7 @@ class BaseOOBConformalClassifier:
         pd.DataFrame
             A DataFrame containing the evaluation metrics.
         """
-        alpha = alpha or self.alpha
+        alpha = self._get_alpha(alpha)
 
         # Helper function for rounding
         def rounded(value):
