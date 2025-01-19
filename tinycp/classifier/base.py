@@ -354,15 +354,16 @@ class BaseOOBConformalClassifier(ABC):
         )
         return training_error - test_error
 
-    def _shuffle(self, scores, n):
+    def _shuffle(self, scores, n, random_state):
         """
         Shuffle the given scores and split them into calibration and validation sets.
         """
-        np.random.shuffle(scores)  # shuffle
-        calib_scores, val_scores = (scores[:n], scores[n:])  # split
+        rng = np.random.default_rng(random_state)
+        shuffled_scores = rng.permutation(scores)
+        calib_scores, val_scores = (shuffled_scores[:n], shuffled_scores[n:])  # split
         return calib_scores, val_scores
 
-    def _empirical_coverage(self, X, alpha=None, iterations=100):
+    def _empirical_coverage(self, X, alpha=None, iterations=100, random_state=42):
         """
         Generate the empirical coverage of the classifier.
 
@@ -387,7 +388,7 @@ class BaseOOBConformalClassifier(ABC):
         n = int(len(scores) * 0.20)
 
         for i in range(iterations):
-            calib_scores, val_scores = self._shuffle(scores, n)
+            calib_scores, val_scores = self._shuffle(scores, n, random_state)
             q_level = np.ceil((n + 1) * (1 - alpha)) / n
             qhat = self._compute_qhat(calib_scores, q_level)
             coverages[i] = self._compute_set(val_scores, qhat).mean()  # see caption
@@ -395,7 +396,7 @@ class BaseOOBConformalClassifier(ABC):
 
         return average_coverage
 
-    def evaluate(self, X, y, alpha=None):
+    def evaluate(self, X, y, alpha=None, random_state=42):
         """
         Evaluate the classifier on the given dataset.
 
@@ -407,6 +408,8 @@ class BaseOOBConformalClassifier(ABC):
             The true labels for X.
         alpha : float, optional
             The significance level for prediction sets. If None, a default value is used.
+        random_state: int, default=42
+            The random_state for random number generation.
 
         Returns:
         --------
@@ -438,7 +441,8 @@ class BaseOOBConformalClassifier(ABC):
         predict_set = self.predict_set(X, alpha)
 
         # Metrics calculation
-        empirical_coverage = rounded(self._empirical_coverage(X, alpha))
+        total = len(X)
+        empirical_coverage = rounded(self._empirical_coverage(X, alpha, random_state))
         one_c = rounded(np.mean([np.sum(p) == 1 for p in predict_set]))
         avg_c = rounded(np.mean([np.sum(p) for p in predict_set]))
         empty = rounded(np.mean([np.sum(p) == 0 for p in predict_set]))
@@ -452,6 +456,7 @@ class BaseOOBConformalClassifier(ABC):
 
         # Results aggregation
         results = {
+            "total": total,
             "alpha": alpha,
             "empirical_coverage": empirical_coverage,
             "one_c": one_c,
