@@ -30,13 +30,13 @@ poetry install --E plot
 Import the conformal classifiers from the `tinycp.classifier` module:
 
 ```python
-from tinycp.classifier.class_conditional import OOBBinaryClassConditionalConformalClassifier
-from tinycp.classifier.marginal import OOBBinaryMarginalConformalClassifier
+from tinycp.classifier.class_conditional import BinaryClassConditionalConformalClassifier
+from tinycp.classifier.marginal import BinaryMarginalConformalClassifier
 ```
 
 ### Example
 
-Example usage of `OOBBinaryClassConditionalConformalClassifier`:
+Example usage of `BinaryClassConditionalConformalClassifier`:
 
 ```python
 from sklearn.ensemble import RandomForestClassifier
@@ -48,8 +48,8 @@ X_train, y_train = ...  # your training data
 learner.fit(X_train, y_train)
 
 # Create and fit the conformal classifier
-conformal_classifier = OOBBinaryClassConditionalConformalClassifier(learner)
-conformal_classifier.fit(y_train)
+conformal_classifier = BinaryClassConditionalConformalClassifier(learner)
+conformal_classifier.fit(y=y_train, oob=True)
 
 # Make predictions
 X_test = ...  # your test data
@@ -67,17 +67,14 @@ print(results)
 
 ## Classes
 
-### BaseConformalClassifier
+### BinaryMarginalConformalClassifier
 
-`BaseConformalClassifier` is a base class for conformal prediction using a RandomForestClassifier and Venn-Abers calibration for confidence estimation.
+`BinaryMarginalConformalClassifier` A marginal coverage conformal classifier methodology utilizing a classifier as the underlying learner. This classifier supports the option to use Out-of-Bag (OOB) samples for calibration.
 
-### OOBBinaryClassConditionalConformalClassifier
 
-`OOBBinaryClassConditionalConformalClassifier` is a class conditional conformal classifier based on OOB methodology, using a random forest classifier as the learner.
+### BinaryClassConditionalConformalClassifier
 
-### OOBBinaryMarginalConformalClassifier
-
-`OOBBinaryMarginalConformalClassifier` is a conformal classifier based on OOB predictions, using RandomForestClassifier and Venn-Abers calibration.
+`BinaryClassConditionalConformalClassifier` A class conditional conformal classifier methodology utilizing a classifier as the underlying learner. This classifier supports the option to use Out-of-Bag (OOB) samples for calibration.
 
 ## License
 
