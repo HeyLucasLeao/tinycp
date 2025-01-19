@@ -3,9 +3,9 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_classification
-from tinycp.classifier.marginal import OOBBinaryMarginalConformalClassifier
+from tinycp.classifier.marginal import BinaryMarginalConformalClassifier
 from tinycp.classifier.class_conditional import (
-    OOBBinaryClassConditionalConformalClassifier,
+    BinaryClassConditionalConformalClassifier,
 )
 
 
@@ -43,8 +43,8 @@ class TestClassifiers(unittest.TestCase):
         self.learner.fit(self.X_train, self.y_train)
 
     def test_marginal_classifier(self):
-        classifier = OOBBinaryMarginalConformalClassifier(self.learner)
-        classifier.fit(self.y_train)
+        classifier = BinaryMarginalConformalClassifier(self.learner)
+        classifier.fit(self.X_calib, self.y_calib, oob=False)
 
         classifier.calibrate(self.X_calib, self.y_calib)
         self.assertTrue(0 < classifier.alpha <= 0.2)
@@ -63,11 +63,11 @@ class TestClassifiers(unittest.TestCase):
 
         eval_dict = classifier.evaluate(self.X_test, self.y_test)
         self.assertTrue(isinstance(eval_dict, dict))
-        self.assertEqual(len(eval_dict.keys()), 12)
+        self.assertEqual(len(eval_dict.keys()), 13)
 
-    def test_class_conditional_classifier(self):
-        classifier = OOBBinaryClassConditionalConformalClassifier(self.learner)
-        classifier.fit(self.y_train)
+    def test_class_cond_classifier(self):
+        classifier = BinaryClassConditionalConformalClassifier(self.learner)
+        classifier.fit(self.X_calib, self.y_calib, oob=False)
 
         classifier.calibrate(self.X_calib, self.y_calib)
         self.assertTrue(0 < classifier.alpha <= 0.2)
@@ -86,7 +86,53 @@ class TestClassifiers(unittest.TestCase):
 
         eval_dict = classifier.evaluate(self.X_test, self.y_test)
         self.assertTrue(isinstance(eval_dict, dict))
-        self.assertEqual(len(eval_dict.keys()), 12)
+        self.assertEqual(len(eval_dict.keys()), 13)
+
+    def test_oob_marginal_classifier(self):
+        classifier = BinaryMarginalConformalClassifier(self.learner)
+        classifier.fit(y=self.y_train, oob=True)
+
+        classifier.calibrate(self.X_calib, self.y_calib)
+        self.assertTrue(0 < classifier.alpha <= 0.2)
+
+        y_proba = classifier.predict_proba(self.X_test)
+        self.assertEqual(y_proba.shape, (200, 2))
+
+        prediction_set = classifier.predict_set(self.X_test)
+        self.assertEqual(prediction_set.shape, (200, 2))
+
+        p_values = classifier.predict_p(self.X_test)
+        self.assertEqual(p_values.shape, (200, 2))
+
+        y_pred = classifier.predict(self.X_test)
+        self.assertEqual(y_pred.shape, (200,))
+
+        eval_dict = classifier.evaluate(self.X_test, self.y_test)
+        self.assertTrue(isinstance(eval_dict, dict))
+        self.assertEqual(len(eval_dict.keys()), 13)
+
+    def test_oob_class_conditional_classifier(self):
+        classifier = BinaryClassConditionalConformalClassifier(self.learner)
+        classifier.fit(y=self.y_train, oob=True)
+
+        classifier.calibrate(self.X_calib, self.y_calib)
+        self.assertTrue(0 < classifier.alpha <= 0.2)
+
+        y_proba = classifier.predict_proba(self.X_test)
+        self.assertEqual(y_proba.shape, (200, 2))
+
+        prediction_set = classifier.predict_set(self.X_test)
+        self.assertEqual(prediction_set.shape, (200, 2))
+
+        p_values = classifier.predict_p(self.X_test)
+        self.assertEqual(p_values.shape, (200, 2))
+
+        y_pred = classifier.predict(self.X_test)
+        self.assertEqual(y_pred.shape, (200,))
+
+        eval_dict = classifier.evaluate(self.X_test, self.y_test)
+        self.assertTrue(isinstance(eval_dict, dict))
+        self.assertEqual(len(eval_dict.keys()), 13)
 
 
 if __name__ == "__main__":

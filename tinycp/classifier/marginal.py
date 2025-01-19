@@ -1,33 +1,33 @@
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.base import BaseEstimator
 import numpy as np
 import warnings
-from .base import BaseOOBConformalClassifier
+from .base import BaseConformalClassifier
 
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
+class BinaryMarginalConformalClassifier(BaseConformalClassifier):
     """
-    Conformal classifier based on Out-of-Bag (OOB) predictions.
-    Uses RandomForestClassifier and Venn-Abers calibration.
+    A marginal coverage conformal classifier methodology utilizing a classifier as the underlying learner.
+    This class is inspired by the WrapperClassifier classes from the Crepes library.
     """
 
     def __init__(
         self,
-        learner: RandomForestClassifier,
+        learner: BaseEstimator,
         alpha: float = 0.05,
     ):
         """
         Constructs the classifier with a specified learner and a Venn-Abers calibration layer.
 
         Parameters:
-        learner: RandomForestClassifier
+        learner: BaseEstimator
             The base learner to be used in the classifier.
         alpha: float, default=0.05
             The significance level applied in the classifier.
 
         Attributes:
-        learner: RandomForestClassifier
+        learner: BaseEstimator
             The base learner employed in the classifier.
         calibration_layer: VennAbers
             The calibration layer utilized in the classifier.
@@ -42,36 +42,69 @@ class OOBBinaryMarginalConformalClassifier(BaseOOBConformalClassifier):
 
         super().__init__(learner, alpha)
 
-    def fit(self, y):
+    def fit(self, X=None, y=None, oob=False):
         """
         Fits the classifier to the training data. Calculates the conformity score for each training instance.
 
         Parameters:
-        y: array-like of shape (n_samples,)
-            The true labels.
+        ----------
+        X : array-like of shape (n_samples, n_features), optional
+            The training data. Required if OOB predictions are not used.
+        y : array-like of shape (n_samples,)
+            The true labels. Required in all cases.
+        oob : bool, default=False
+            Whether to use Out-of-Bag (OOB) predictions if available.
 
         Returns:
-        self: object
-            Returns self.
+        -------
+        self : object
+            The fitted classifier.
 
-        The function works as follows:
-        - It first gets the out-of-bag probability predictions from the learner.
-        - It then fits the calibration layer to these predictions and the true labels.
-        - It computes the probability for each instance.
-        - It finally turns these probabilities into non-conformity measure.
+        Raises:
+        ------
+        ValueError:
+            If OOB is enabled but the learner does not support OOB predictions,
+            or if `X` and `y` are not provided when `oob=False`.
         """
 
-        # Get the probability predictions
-        self.n = len(self.learner.oob_decision_function_)
-        y_prob = self.learner.oob_decision_function_
+        if y is None:
+            raise ValueError("The true labels (y) must be provided.")
 
-        self.calibration_layer.fit(y_prob, y)
-        y_prob, _ = self.calibration_layer.predict_proba(y_prob)
+        if oob:
+            if (
+                not hasattr(self.learner, "oob_decision_function_")
+                or self.learner.oob_decision_function_ is None
+            ):
+                raise ValueError(
+                    "OOB predictions are not available for the provided learner."
+                )
+            if X is not None:
+                raise ValueError(
+                    "Training data (X) should not be provided when OOB is used. Ensure that 'y' is the same as the labels used during training."
+                )
 
-        # We only need the probability for the true class
+            # Use OOB predictions
+            self.decision_function_ = self.learner.oob_decision_function_
+        else:
+
+            if X is None:
+                raise ValueError(
+                    "Training data (X) must be provided if OOB is not used."
+                )
+
+            # Use predict_proba for training data
+            self.decision_function_ = self.learner.predict_proba(X)
+
+        self.n = len(self.decision_function_)
+
+        self.calibration_layer.fit(self.decision_function_, y)
+
+        y_prob, _ = self.calibration_layer.predict_proba(self.decision_function_)
+
         y_prob = y_prob[np.arange(self.n), y]
 
         self.hinge = self.generate_non_conformity_score(y_prob)
+
         self.y = y
 
         return self

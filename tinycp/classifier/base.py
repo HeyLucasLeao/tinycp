@@ -1,6 +1,6 @@
 from venn_abers import VennAbers
 from sklearn.utils.validation import check_is_fitted
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.base import BaseEstimator
 import warnings
 import numpy as np
 import sklearn.metrics
@@ -10,11 +10,11 @@ from abc import ABC, abstractmethod
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class BaseOOBConformalClassifier(ABC):
+class BaseConformalClassifier(ABC):
     """
     BaseConformalClassifier
 
-    A base class for conformal prediction using a RandomForestClassifier as the learner
+    A base class for conformal prediction using a model as the learner
     and Venn-Abers calibration for confidence estimation.
     This approach provides valid predictions with a specified significance level (alpha).
 
@@ -23,14 +23,14 @@ class BaseOOBConformalClassifier(ABC):
 
     def __init__(
         self,
-        learner: RandomForestClassifier,
+        learner: BaseEstimator,
         alpha: float = 0.05,
     ):
         """
         Constructs the classifier with a specified learner and a Venn-Abers calibration layer.
 
         Parameters:
-        learner: RandomForestClassifier
+        learner: BaseEstimator
             The base learner to be used in the classifier.
         alpha: float, default=0.05
             The significance level applied in the classifier.
@@ -40,7 +40,7 @@ class BaseOOBConformalClassifier(ABC):
             - "mcc": Matthews Correlation Coefficient
 
         Attributes:
-        learner: RandomForestClassifier
+        learner: BaseEstimator
             The base learner employed in the classifier.
         calibration_layer: VennAbers
             The calibration layer utilized in the classifier.
@@ -56,14 +56,13 @@ class BaseOOBConformalClassifier(ABC):
         self.learner = learner
         self.alpha = alpha
         self.calibration_layer = VennAbers()
+        self.decision_function_ = None
 
         # Ensure the learner is fitted
-        check_is_fitted(learner, attributes=["oob_decision_function_"])
+        check_is_fitted(learner)
 
         if learner.n_classes_ > 2:
             raise ValueError("This classifier supports only binary classification.")
-
-        self.feature_importances_ = learner.feature_importances_
 
         self.hinge = None
         self.n = None
@@ -337,9 +336,7 @@ class BaseOOBConformalClassifier(ABC):
 
         alpha = self._get_alpha(alpha)
 
-        ncscore = self.generate_non_conformity_score(
-            self.learner.oob_decision_function_
-        )
+        ncscore = self.generate_non_conformity_score(self.decision_function_)
 
         qhat = self.generate_conformal_quantile(alpha)
 
@@ -354,15 +351,16 @@ class BaseOOBConformalClassifier(ABC):
         )
         return training_error - test_error
 
-    def _shuffle(self, scores, n):
+    def _shuffle(self, scores, n, random_state):
         """
         Shuffle the given scores and split them into calibration and validation sets.
         """
-        np.random.shuffle(scores)  # shuffle
-        calib_scores, val_scores = (scores[:n], scores[n:])  # split
+        rng = np.random.default_rng(random_state)
+        shuffled_scores = rng.permutation(scores)
+        calib_scores, val_scores = (shuffled_scores[:n], shuffled_scores[n:])  # split
         return calib_scores, val_scores
 
-    def _empirical_coverage(self, X, alpha=None, iterations=100):
+    def _empirical_coverage(self, X, alpha=None, iterations=100, random_state=42):
         """
         Generate the empirical coverage of the classifier.
 
@@ -387,7 +385,7 @@ class BaseOOBConformalClassifier(ABC):
         n = int(len(scores) * 0.20)
 
         for i in range(iterations):
-            calib_scores, val_scores = self._shuffle(scores, n)
+            calib_scores, val_scores = self._shuffle(scores, n, random_state)
             q_level = np.ceil((n + 1) * (1 - alpha)) / n
             qhat = self._compute_qhat(calib_scores, q_level)
             coverages[i] = self._compute_set(val_scores, qhat).mean()  # see caption
@@ -395,7 +393,7 @@ class BaseOOBConformalClassifier(ABC):
 
         return average_coverage
 
-    def evaluate(self, X, y, alpha=None):
+    def evaluate(self, X, y, alpha=None, random_state=42):
         """
         Evaluate the classifier on the given dataset.
 
@@ -407,6 +405,8 @@ class BaseOOBConformalClassifier(ABC):
             The true labels for X.
         alpha : float, optional
             The significance level for prediction sets. If None, a default value is used.
+        random_state: int, default=42
+            The random_state for random number generation.
 
         Returns:
         --------
@@ -438,7 +438,8 @@ class BaseOOBConformalClassifier(ABC):
         predict_set = self.predict_set(X, alpha)
 
         # Metrics calculation
-        empirical_coverage = rounded(self._empirical_coverage(X, alpha))
+        total = len(X)
+        empirical_coverage = rounded(self._empirical_coverage(X, alpha, random_state))
         one_c = rounded(np.mean([np.sum(p) == 1 for p in predict_set]))
         avg_c = rounded(np.mean([np.sum(p) for p in predict_set]))
         empty = rounded(np.mean([np.sum(p) == 0 for p in predict_set]))
@@ -452,6 +453,7 @@ class BaseOOBConformalClassifier(ABC):
 
         # Results aggregation
         results = {
+            "total": total,
             "alpha": alpha,
             "empirical_coverage": empirical_coverage,
             "one_c": one_c,

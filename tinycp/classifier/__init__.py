@@ -1,2 +1,2 @@
-from .marginal import OOBBinaryMarginalConformalClassifier
-from .class_conditional import OOBBinaryClassConditionalConformalClassifier
+from .marginal import BinaryMarginalConformalClassifier
+from .class_conditional import BinaryClassConditionalConformalClassifier
