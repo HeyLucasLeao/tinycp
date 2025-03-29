@@ -307,49 +307,12 @@ class BaseConformalClassifier(ABC):
                 ece += np.abs(avg_pred - avg_confidence_in_bin) * prob_in_bin
         return ece
 
-    def _evaluate_generalization(self, X, y, alpha=None):
+    def _false_positive_rate(self, y, y_pred):
         """
-        Evaluate the generalization gap of the conformal classifier.
-
-        The generalization gap quantifies the difference in performance
-        between the training and test datasets. A smaller gap indicates
-        better generalization to unseen data, while a larger gap suggests
-        potential overfitting. It is calculated as the difference between
-        the error rate on the training set and the error rate on the test set.
-
-        Parameters:
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Input features of the test set.
-        y : array-like of shape (n_samples,)
-            True labels corresponding to the test set.
-        alpha : float, optional
-            Significance level for conformal prediction. If None, the value
-            of `self.alpha` is used.
-
-        Returns:
-        -------
-        float
-            The generalization gap, calculated as:
-            (Training Error - Test Error).
+        Computes the false positive rate (FPR).
         """
-
-        alpha = self._get_alpha(alpha)
-
-        ncscore = self.generate_non_conformity_score(self.decision_function_)
-
-        qhat = self.generate_conformal_quantile(alpha)
-
-        prediction_set = self._compute_set(ncscore, qhat)
-        y_pred = self._compute_prediction(prediction_set)
-
-        training_error = 1 - sklearn.metrics.balanced_accuracy_score(
-            y_pred, self.y, adjusted=False
-        )
-        test_error = 1 - sklearn.metrics.balanced_accuracy_score(
-            self.predict(X, alpha), y, adjusted=False
-        )
-        return training_error - test_error
+        tn, fp, _, _ = sklearn.metrics.confusion_matrix(y, y_pred).ravel()
+        return fp / (fp + tn)
 
     def _shuffle(self, scores, n, random_state):
         """
@@ -434,7 +397,7 @@ class BaseConformalClassifier(ABC):
 
         # Predictions and probabilities
         y_prob = self.predict_proba(X)
-        y_pred = self.predict(X)
+        y_pred = self.predict(X, alpha)
         predict_set = self.predict_set(X, alpha)
 
         # Metrics calculation
@@ -446,7 +409,7 @@ class BaseConformalClassifier(ABC):
         error = rounded(1 - np.mean(predict_set[np.arange(len(y)), y]))
         log_loss = rounded(sklearn.metrics.log_loss(y, y_prob[:, 1]))
         ece = rounded(self._expected_calibration_error(y, y_prob))
-        generalization = rounded(self._evaluate_generalization(X, y, alpha))
+        fpr = rounded(self._false_positive_rate(y, y_pred))
         bookmaker_informedness = rounded(self._bookmaker_informedness(y, y_pred))
         matthews_corr = rounded(sklearn.metrics.matthews_corrcoef(y, y_pred))
         f1 = rounded(sklearn.metrics.f1_score(y, self.predict(X, alpha)))
@@ -465,7 +428,7 @@ class BaseConformalClassifier(ABC):
             "bm": bookmaker_informedness,
             "mcc": matthews_corr,
             "f1": f1,
-            "generalization": generalization,
+            "fpr": fpr,
         }
 
         return results
