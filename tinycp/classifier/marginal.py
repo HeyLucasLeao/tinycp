@@ -114,7 +114,7 @@ class BinaryMarginalConformalClassifier(BaseConformalClassifier):
 
     def _compute_q_level(self, n, alpha=None):
         """
-        Compute the quantile level for each class based on the number of samples and significance level.
+        Compute the quantile level based on the number of samples and significance level.
         """
         alpha = self._get_alpha(alpha)
         return np.ceil((n + 1) * (1 - alpha)) / n

@@ -99,7 +99,7 @@ class BaseConformalClassifier(ABC):
     @abstractmethod
     def _compute_q_level(self, n, alpha):
         """
-        Compute the quantile level for each class based on the number of samples and significance level.
+        Compute the quantile level based on the number of samples and significance level.
         """
         pass
 
@@ -344,7 +344,7 @@ class BaseConformalClassifier(ABC):
         predict_sets = self.predict_set(X, alpha)
         coverages = predict_sets[np.arange(len(y)), y]
 
-        return coverages.mean()
+        return np.mean(coverages)
 
     def evaluate(self, X, y, alpha=None):
         """
