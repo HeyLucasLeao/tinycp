@@ -107,19 +107,9 @@ class BinaryClassConditionalConformalClassifier(BaseConformalClassifier):
         y_prob = y_prob[np.arange(len(y)), y]
         hinge = self.generate_non_conformity_score(y_prob)
         self.hinge = [hinge[y == c] for c in self.classes]
-        self.n = self._compute_calibration_counts(y)
+        self.n = [np.sum(y == c) for c in self.classes]
 
         return self
-
-    def _compute_calibration_counts(self, y):
-        """
-        Calculate the number of calibration points for each class based on the nonconformity scores.
-        """
-        counts = np.zeros(len(self.classes))
-
-        for c in self.classes:
-            counts[c] = np.sum(y == c)
-        return counts
 
     def _compute_q_level(self, n, alpha):
         """

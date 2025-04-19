@@ -102,15 +102,9 @@ class BinaryMarginalConformalClassifier(BaseConformalClassifier):
         y_prob = y_prob[np.arange(len(y)), y]
 
         self.hinge = self.generate_non_conformity_score(y_prob)
-        self.n = self._compute_calibration_counts(y)
+        self.n = len(y)
 
         return self
-
-    def _compute_calibration_counts(self, y):
-        """
-        Calculate the number of calibration points based on the nonconformity scores.
-        """
-        return len(y)
 
     def _compute_qhat(self, ncscore, q_level):
         """

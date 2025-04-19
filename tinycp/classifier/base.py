@@ -44,13 +44,13 @@ class BaseConformalClassifier(ABC):
         calibration_layer : VennAbers
             The calibration layer utilized in the classifier.
         decision_function_ : callable or None
-            The decision function of the learner, if available.
+            The decision function of the learner.
         hinge : array-like of shape (n_samples,), default=None
             The non-conformity scores of the calibration samples.
         alpha : float, default=0.05
             The significance level applied in the classifier.
         n : int or None
-            The number of calibration samples, if applicable.
+            The number of calibration samples.
         """
 
         self.learner = learner
@@ -100,13 +100,6 @@ class BaseConformalClassifier(ABC):
     def _compute_q_level(self, n, alpha):
         """
         Compute the quantile level for each class based on the number of samples and significance level.
-        """
-        pass
-
-    @abstractmethod
-    def _compute_calibration_counts(self, y):
-        """
-        Compute the training points based on the true labels.
         """
         pass
 
@@ -327,40 +320,7 @@ class BaseConformalClassifier(ABC):
         tn, fp, _, _ = sklearn.metrics.confusion_matrix(y, y_pred).ravel()
         return fp / (fp + tn)
 
-    def _shuffle(self, scores, y, n_calib, random_state=None):
-        """
-        Shuffle scores and labels, then split into calibration and validation sets.
-
-        Parameters:
-        ----------
-        scores : array-like
-            Non-conformity scores.
-        y : array-like
-            Corresponding labels.
-        n_calib : int
-            Number of calibration samples.
-        random_state : int, optional
-            Seed for reproducibility.
-
-        Returns:
-        -------
-        tuple
-            (calibration_scores, calibration_labels, validation_scores, validation_labels)
-        """
-        rng = np.random.default_rng(random_state)
-        shuffled_indices = rng.permutation(len(scores))
-        calibration_scores = scores[shuffled_indices[:n_calib]]
-        calibration_labels = y[shuffled_indices[:n_calib]]
-        validation_scores = scores[shuffled_indices[n_calib:]]
-        validation_labels = y[shuffled_indices[n_calib:]]
-        return (
-            calibration_scores,
-            calibration_labels,
-            validation_scores,
-            validation_labels,
-        )
-
-    def _coverage_rate(self, X, y, alpha=None, random_state=42, iterations=100):
+    def _coverage_rate(self, X, y, alpha=None):
         """
         Compute the coverage rate from conformal prediction.
 
@@ -379,32 +339,14 @@ class BaseConformalClassifier(ABC):
         Returns:
         float: Average coverage rate across all iterations
         """
-        np.random.seed(random_state)
+
         alpha = self._get_alpha(alpha)
-        y_prob = self.predict_proba(X)
-        ncscores = self.generate_non_conformity_score(y_prob)
-        n_calib = int(len(ncscores) * 0.8)
-        coverages = np.zeros((iterations,))
-
-        for i in range(iterations):
-            calib_scores, calib_y, val_scores, val_y = self._shuffle(
-                ncscores, y, n_calib, random_state + i
-            )
-            calib_scores = calib_scores[np.arange(len(calib_y)), calib_y]
-            n = self._compute_calibration_counts(calib_y)
-            q_level = self._compute_q_level(n, alpha)
-
-            if hasattr(self, "classes"):
-                calib_scores = [calib_scores[calib_y == c] for c in self.classes]
-
-            qhat = self._compute_qhat(calib_scores, q_level)
-            sets = self._compute_set(val_scores, qhat)
-            covered = sets[np.arange(len(val_y)), val_y]
-            coverages[i] = covered.mean()
+        predict_sets = self.predict_set(X, alpha)
+        coverages = predict_sets[np.arange(len(y)), y]
 
         return coverages.mean()
 
-    def evaluate(self, X, y, alpha=None, random_state=42):
+    def evaluate(self, X, y, alpha=None):
         """
         Evaluate the classifier on the given dataset.
 
@@ -451,7 +393,7 @@ class BaseConformalClassifier(ABC):
 
         # Metrics calculation
         total = len(X)
-        coverage_rate = rounded(self._coverage_rate(X, y, alpha, random_state))
+        coverage_rate = rounded(self._coverage_rate(X, y, alpha))
         one_c = rounded(np.mean([np.sum(p) == 1 for p in predict_set]))
         avg_c = rounded(np.mean([np.sum(p) for p in predict_set]))
         empty = rounded(np.mean([np.sum(p) == 0 for p in predict_set]))
