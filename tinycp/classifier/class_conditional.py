@@ -21,26 +21,25 @@ class BinaryClassConditionalConformalClassifier(BaseConformalClassifier):
         Constructs the classifier with a specified learner and a Venn-Abers calibration layer.
 
         Parameters:
-        learner: BaseEstimator
+        ----------
+        learner : BaseEstimator
             The base learner to be used in the classifier.
-        alpha: float, default=0.05
+        alpha : float, default=0.05
             The significance level applied in the classifier.
-        scoring_func: str, default="mcc"
-            Scoring function to optimize. Acceptable values are:
-            - "bm": Bookmaker Informedness
-            - "mcc": Matthews Correlation Coefficient
 
         Attributes:
-        learner: BaseEstimator
+        ----------
+        learner : BaseEstimator
             The base learner employed in the classifier.
-        calibration_layer: VennAbers
+        calibration_layer : VennAbers
             The calibration layer utilized in the classifier.
-        feature_importances_: array-like of shape (n_features,)
-            The feature importances derived from the learner.
-        hinge : array-like of shape (n_samples,), default=None
-            Nonconformity scores based on the predicted probabilities. Measures the confidence margin
-            between the predicted probability of the true class and the most likely incorrect class.
-        alpha: float, default=0.05
+        classes : array-like of shape (n_classes,), default=None
+            The unique class labels identified during training.
+        hinge : list of array-like, default=None
+            Nonconformity scores for each class based on the predicted probabilities.
+        n : array-like of shape (n_classes,), default=None
+            The number of calibration points for each class.
+        alpha : float, default=0.05
             The significance level applied in the classifier.
         """
 
@@ -99,22 +98,38 @@ class BinaryClassConditionalConformalClassifier(BaseConformalClassifier):
             # Use predict_proba for training data
             self.decision_function_ = self.learner.predict_proba(X)
 
-        self.n = len(self.decision_function_)
-
         self.classes = self.learner.classes_
 
         self.calibration_layer.fit(self.decision_function_, y)
 
         y_prob, _ = self.calibration_layer.predict_proba(self.decision_function_)
 
-        y_prob = y_prob[np.arange(self.n), y]
-
+        y_prob = y_prob[np.arange(len(y)), y]
         hinge = self.generate_non_conformity_score(y_prob)
-
         self.hinge = [hinge[y == c] for c in self.classes]
-        self.y = y
+        self.n = self._compute_calibration_counts(y)
 
         return self
+
+    def _compute_calibration_counts(self, y):
+        """
+        Calculate the number of calibration points for each class based on the nonconformity scores.
+        """
+        counts = np.zeros(len(self.classes))
+
+        for c in self.classes:
+            counts[c] = np.sum(y == c)
+        return counts
+
+    def _compute_q_level(self, n, alpha):
+        """
+        Compute the quantile level for each class based on the number of samples and significance level.
+        """
+        alpha = self._get_alpha(alpha)
+        q_level = np.zeros(len(self.classes))
+        for c in self.classes:
+            q_level[c] = np.ceil((n[c] + 1) * (1 - alpha)) / n[c]
+        return q_level
 
     def _compute_qhat(self, ncscore, q_level):
         """
@@ -122,7 +137,7 @@ class BinaryClassConditionalConformalClassifier(BaseConformalClassifier):
         """
         qhat = np.zeros(len(self.classes))
         for c in self.classes:
-            qhat[c] = np.quantile(ncscore[c], q_level, method="higher")
+            qhat[c] = np.quantile(ncscore[c], q_level[c], method="higher")
         return qhat
 
     def _compute_set(self, ncscore, qhat):
@@ -180,7 +195,7 @@ class BinaryClassConditionalConformalClassifier(BaseConformalClassifier):
         for i in range(ncscore.shape[0]):
             for j in range(ncscore.shape[1]):
                 numerator = np.sum(self.hinge[j] >= ncscore[i][j]) + 1
-                denumerator = self.n + 1
+                denumerator = self.n[j] + 1
                 p_values[i, j] = numerator / denumerator
 
         return p_values
