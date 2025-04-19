@@ -146,30 +146,29 @@ class BaseConformalClassifier(ABC):
 
     def generate_conformal_quantile(self, alpha=None):
         """
-        Generates the conformal quantile for conformal prediction.
+        Generate the conformal quantile for conformal prediction.
 
-        This function calculates the conformal quantile based on the non-conformity scores
-        of the true label probabilities. The quantile is used as a threshold
-        to determine the prediction set in conformal prediction.
+        This method calculates the conformal quantile based on the nonconformity scores
+        of the calibration samples. The quantile serves as a threshold to determine
+        the prediction sets in conformal prediction.
 
         Parameters:
         -----------
         alpha : float, optional
-            The significance level for conformal prediction. If None, uses the value
-            of self.alpha.
+            The significance level for conformal prediction. If None, the default
+            value of self.alpha is used.
 
         Returns:
         --------
         float
-            The calculated conformal quantile.
+            The computed conformal quantile.
 
         Notes:
         ------
-        - The quantile is calculated as the (n+1)*(1-alpha)/n percentile of the non-conformity
-          scores, where n is the number of calibration samples.
-        - This method uses the self.hinge attribute, which should contain the non-conformity
-          scores of the calibration samples.
-
+        - The quantile is computed as ceil((n + 1) * (1 - alpha)) / n, where n is the
+          number of calibration samples.
+        - This method relies on the self.ncscore attribute, which should contain the
+          nonconformity scores of the calibration samples.
         """
 
         alpha = self._get_alpha(alpha)
@@ -197,29 +196,31 @@ class BaseConformalClassifier(ABC):
 
     def calibrate(self, X, y, max_alpha=0.2, func="mcc"):
         """
-        Calibrates the alpha value to minimize error rates.
+        Calibrates the alpha value to optimize the specified metric.
 
-        The method iterates over a range of alpha values (0.01 to `max_alpha`) to find the
-        optimal significance level based on the specified metric function.
+        This method evaluates a range of alpha values (from 0.01 to `max_alpha`)
+        to determine the optimal significance level based on the provided scoring
+        function. The alpha value that maximizes the scoring function is selected.
 
-        Parameters:
-        -----------
-        X: array-like of shape (n_samples, n_features)
-            Input samples for calibration.
-        y: array-like of shape (n_samples,)
-            True labels.
-        max_alpha: float, default=0.2
-            Maximum alpha value to consider during calibration.
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Input samples used for calibration.
+        y : array-like of shape (n_samples,)
+            True labels corresponding to the input samples.
+        max_alpha : float, optional, default=0.2
+            The maximum alpha value to consider during calibration. The range of
+            alpha values tested will be from 0.01 to `max_alpha`, inclusive.
+        func : str, optional, default="mcc"
+            The name of the scoring function to use for optimization. Supported
+            functions should be implemented in the `_select_scoring_function` method.
 
-        Raises:
-        -------
-        ValueError
-            If an invalid metric function is provided.
+        Raises
+        ------
+            If an invalid scoring function name is provided in the `func` parameter.
 
-        Returns:
-        --------
-        float
-            The optimal alpha value.
+        Returns
+            The optimal alpha value that maximizes the scoring function.
         """
 
         scoring_func = self._select_scoring_function(func)
@@ -350,24 +351,22 @@ class BaseConformalClassifier(ABC):
         """
         Evaluate the classifier on the given dataset.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X : array-like of shape (n_samples, n_features)
             Input samples.
         y : array-like of shape (n_samples,)
             True labels for the input samples.
         alpha : float, optional
             Significance level for prediction sets. If None, the classifier's default alpha is used.
-        random_state : int, default=42
-            Random seed for reproducibility.
 
-        Returns:
-        --------
+        Returns
+        -------
         results : dict
             A dictionary containing the following evaluation metrics:
             - "total": Total number of samples.
             - "alpha": Significance level used.
-            - "coverage_rate": Empirical coverage of the prediction sets.
+            - "coverage_rate": Coverage rate of the prediction sets.
             - "one_c": Proportion of prediction sets containing exactly one element.
             - "avg_c": Average size of the prediction sets.
             - "empty": Proportion of empty prediction sets.
