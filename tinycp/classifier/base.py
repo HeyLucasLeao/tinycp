@@ -27,30 +27,30 @@ class BaseConformalClassifier(ABC):
         alpha: float = 0.05,
     ):
         """
-        Constructs the classifier with a specified learner and a Venn-Abers calibration layer.
 
-        Parameters:
-        learner: BaseEstimator
+        Initializes the classifier with a specified learner and a Venn-Abers calibration layer.
+
+        Parameters
+        ----------
+        learner : BaseEstimator
             The base learner to be used in the classifier.
-        alpha: float, default=0.05
+        alpha : float, default=0.05
             The significance level applied in the classifier.
-        scoring_func: str, default="bm"
-            Scoring function to optimize. Acceptable values are:
-            - "bm": Bookmaker Informedness
-            - "mcc": Matthews Correlation Coefficient
 
-        Attributes:
-        learner: BaseEstimator
+        Attributes
+        ----------
+        learner : BaseEstimator
             The base learner employed in the classifier.
-        calibration_layer: VennAbers
+        calibration_layer : VennAbers
             The calibration layer utilized in the classifier.
-        feature_importances_: array-like of shape (n_features,)
-            The feature importances derived from the learner.
+        decision_function_ : callable or None
+            The decision function of the learner.
         hinge : array-like of shape (n_samples,), default=None
-            Nonconformity scores based on the predicted probabilities. Measures the confidence margin
-            between the predicted probability of the true class and the most likely incorrect class.
-        alpha: float, default=0.05
+            The non-conformity scores of the calibration samples.
+        alpha : float, default=0.05
             The significance level applied in the classifier.
+        n : int or None
+            The number of calibration samples.
         """
 
         self.learner = learner
@@ -66,7 +66,6 @@ class BaseConformalClassifier(ABC):
 
         self.hinge = None
         self.n = None
-        self.y = None
 
     @abstractmethod
     def fit(self, y):
@@ -94,6 +93,13 @@ class BaseConformalClassifier(ABC):
     def _compute_set(self, ncscore, qhat):
         """
         Compute a set based on the given ncscore and qhat.
+        """
+        pass
+
+    @abstractmethod
+    def _compute_q_level(self, n, alpha):
+        """
+        Compute the quantile level based on the number of samples and significance level.
         """
         pass
 
@@ -140,35 +146,34 @@ class BaseConformalClassifier(ABC):
 
     def generate_conformal_quantile(self, alpha=None):
         """
-        Generates the conformal quantile for conformal prediction.
+        Generate the conformal quantile for conformal prediction.
 
-        This function calculates the conformal quantile based on the non-conformity scores
-        of the true label probabilities. The quantile is used as a threshold
-        to determine the prediction set in conformal prediction.
+        This method calculates the conformal quantile based on the nonconformity scores
+        of the calibration samples. The quantile serves as a threshold to determine
+        the prediction sets in conformal prediction.
 
         Parameters:
         -----------
         alpha : float, optional
-            The significance level for conformal prediction. If None, uses the value
-            of self.alpha.
+            The significance level for conformal prediction. If None, the default
+            value of self.alpha is used.
 
         Returns:
         --------
         float
-            The calculated conformal quantile.
+            The computed conformal quantile.
 
         Notes:
         ------
-        - The quantile is calculated as the (n+1)*(1-alpha)/n percentile of the non-conformity
-          scores, where n is the number of calibration samples.
-        - This method uses the self.hinge attribute, which should contain the non-conformity
-          scores of the calibration samples.
-
+        - The quantile is computed as ceil((n + 1) * (1 - alpha)) / n, where n is the
+          number of calibration samples.
+        - This method relies on the self.ncscore attribute, which should contain the
+          nonconformity scores of the calibration samples.
         """
 
         alpha = self._get_alpha(alpha)
 
-        q_level = np.ceil((self.n + 1) * (1 - alpha)) / self.n
+        q_level = self._compute_q_level(self.n, alpha)
 
         return self._compute_qhat(self.hinge, q_level)
 
@@ -191,29 +196,31 @@ class BaseConformalClassifier(ABC):
 
     def calibrate(self, X, y, max_alpha=0.2, func="mcc"):
         """
-        Calibrates the alpha value to minimize error rates.
+        Calibrates the alpha value to optimize the specified metric.
 
-        The method iterates over a range of alpha values (0.01 to `max_alpha`) to find the
-        optimal significance level based on the specified metric function.
+        This method evaluates a range of alpha values (from 0.01 to `max_alpha`)
+        to determine the optimal significance level based on the provided scoring
+        function. The alpha value that maximizes the scoring function is selected.
 
-        Parameters:
-        -----------
-        X: array-like of shape (n_samples, n_features)
-            Input samples for calibration.
-        y: array-like of shape (n_samples,)
-            True labels.
-        max_alpha: float, default=0.2
-            Maximum alpha value to consider during calibration.
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Input samples used for calibration.
+        y : array-like of shape (n_samples,)
+            True labels corresponding to the input samples.
+        max_alpha : float, optional, default=0.2
+            The maximum alpha value to consider during calibration. The range of
+            alpha values tested will be from 0.01 to `max_alpha`, inclusive.
+        func : str, optional, default="mcc"
+            The name of the scoring function to use for optimization. Supported
+            functions should be implemented in the `_select_scoring_function` method.
 
-        Raises:
-        -------
-        ValueError
-            If an invalid metric function is provided.
+        Raises
+        ------
+            If an invalid scoring function name is provided in the `func` parameter.
 
-        Returns:
-        --------
-        float
-            The optimal alpha value.
+        Returns
+            The optimal alpha value that maximizes the scoring function.
         """
 
         scoring_func = self._select_scoring_function(func)
@@ -314,79 +321,62 @@ class BaseConformalClassifier(ABC):
         tn, fp, _, _ = sklearn.metrics.confusion_matrix(y, y_pred).ravel()
         return fp / (fp + tn)
 
-    def _shuffle(self, scores, n, random_state):
+    def _coverage_rate(self, X, y, alpha=None):
         """
-        Shuffle the given scores and split them into calibration and validation sets.
-        """
-        rng = np.random.default_rng(random_state)
-        shuffled_scores = rng.permutation(scores)
-        calib_scores, val_scores = (shuffled_scores[:n], shuffled_scores[n:])  # split
-        return calib_scores, val_scores
-
-    def _empirical_coverage(self, X, alpha=None, iterations=100, random_state=42):
-        """
-        Generate the empirical coverage of the classifier.
+        Compute the coverage rate from conformal prediction.
 
         Parameters:
         X: array-like of shape (n_samples, n_features)
-            The input samples.
-        alpha: float, default=None
-            The significance level. If None, the value of self.alpha is used.
+            Input features
+        y: array-like of shape (n_samples,)
+            True labels
+        alpha: float, optional
+            Significance level (1 - desired coverage)
         iterations: int, default=100
-            The number of iterations for the empirical coverage calculation.
+            Number of trials to run
+        random_state: int, optional
+            Random seed for reproducibility
 
         Returns:
-        average_coverage: float
-            The average coverage over the iterations. It should be close to 1-alpha.
+        float: Average coverage rate across all iterations
         """
 
         alpha = self._get_alpha(alpha)
+        predict_sets = self.predict_set(X, alpha)
+        coverages = predict_sets[np.arange(len(y)), y]
 
-        coverages = np.zeros((iterations,))
-        y_prob = self.predict_proba(X)
-        scores = 1 - y_prob
-        n = int(len(scores) * 0.20)
+        return np.mean(coverages)
 
-        for i in range(iterations):
-            calib_scores, val_scores = self._shuffle(scores, n, random_state)
-            q_level = np.ceil((n + 1) * (1 - alpha)) / n
-            qhat = self._compute_qhat(calib_scores, q_level)
-            coverages[i] = self._compute_set(val_scores, qhat).mean()  # see caption
-            average_coverage = coverages.mean()  # should be close to 1-alpha
-
-        return average_coverage
-
-    def evaluate(self, X, y, alpha=None, random_state=42):
+    def evaluate(self, X, y, alpha=None):
         """
         Evaluate the classifier on the given dataset.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X : array-like of shape (n_samples, n_features)
-            The input samples.
+            Input samples.
         y : array-like of shape (n_samples,)
-            The true labels for X.
+            True labels for the input samples.
         alpha : float, optional
-            The significance level for prediction sets. If None, a default value is used.
-        random_state: int, default=42
-            The random_state for random number generation.
+            Significance level for prediction sets. If None, the classifier's default alpha is used.
 
-        Returns:
-        --------
+        Returns
+        -------
         results : dict
-            A dictionary containing the evaluation metrics:
-            - "alpha": The significance level used.
-            - "empirical_coverage": The empirical coverage of the prediction sets.
-            - "one_c": The proportion of prediction sets containing exactly one element.
-            - "avg_c": The average size of the prediction sets.
-            - "empty": The proportion of empty prediction sets.
-            - "error": The classification error rate.
-            - "log_loss": The log loss of the predictions.
-            - "ece": The expected calibration error.
-            - "bm": The bookmaker informedness.
-            - "mcc": The Matthews correlation coefficient.
-            - "f1": The F1 score.
-            - "generalization": The generalization error.
+            A dictionary containing the following evaluation metrics:
+            - "total": Total number of samples.
+            - "alpha": Significance level used.
+            - "coverage_rate": Coverage rate of the prediction sets.
+            - "one_c": Proportion of prediction sets containing exactly one element.
+            - "avg_c": Average size of the prediction sets.
+            - "empty": Proportion of empty prediction sets.
+            - "error": Classification error rate.
+            - "log_loss": Log loss of the predictions.
+            - "ece": Expected calibration error.
+            - "bm": Bookmaker informedness score.
+            - "mcc": Matthews correlation coefficient.
+            - "f1": F1 score.
+            - "fpr": False positive rate.
         """
 
         alpha = self._get_alpha(alpha)
@@ -402,7 +392,7 @@ class BaseConformalClassifier(ABC):
 
         # Metrics calculation
         total = len(X)
-        empirical_coverage = rounded(self._empirical_coverage(X, alpha, random_state))
+        coverage_rate = rounded(self._coverage_rate(X, y, alpha))
         one_c = rounded(np.mean([np.sum(p) == 1 for p in predict_set]))
         avg_c = rounded(np.mean([np.sum(p) for p in predict_set]))
         empty = rounded(np.mean([np.sum(p) == 0 for p in predict_set]))
@@ -418,7 +408,7 @@ class BaseConformalClassifier(ABC):
         results = {
             "total": total,
             "alpha": alpha,
-            "empirical_coverage": empirical_coverage,
+            "coverage_rate": coverage_rate,
             "one_c": one_c,
             "avg_c": avg_c,
             "empty": empty,

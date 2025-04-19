@@ -271,3 +271,81 @@ def beta_pdf_with_cdf_fill(alpha, beta_param, fig_type=None, start=0, end=1.0):
     fig = go.Figure(data=[trace_pdf, trace_fill], layout=layout)
 
     return fig.show(fig_type)
+
+
+def plot_prediction_intervals(
+    intervals, y_pred, y_test, fig_type=None, width=800, height=400
+):
+    """
+    Generates an interactive plot to visualize prediction intervals,
+    actual values, and model predictions.
+
+    Parameters:
+    - intervals (numpy.ndarray): Array containing the lower and upper bounds of the prediction intervals.
+    - y_pred (numpy.ndarray): Array containing the predicted values from the model.
+    - y_test (pandas.Series): Series containing the actual test set values.
+
+    Returns:
+    - fig (plotly.graph_objects.Figure): Interactive Plotly figure object.
+    """
+    fig = go.Figure()
+
+    lower_bound = intervals[:, 0]
+    upper_bound = intervals[:, 1]
+
+    # Valores reais
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(len(y_test))),
+            y=y_test,
+            mode="lines",
+            line=dict(color="darkblue"),
+            name="Real Value",
+        )
+    )
+
+    # Limite inferior
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(len(y_test))),
+            y=lower_bound,
+            mode="lines",
+            line=dict(color="rgba(128, 128, 128, 0.2)"),
+            showlegend=False,
+        )
+    )
+
+    # Limite superior
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(len(y_test))),
+            y=upper_bound,
+            mode="lines",
+            fill="tonexty",  # Preenche entre este trace e o anterior
+            fillcolor="rgba(128, 128, 128, 0.2)",
+            line=dict(color="rgba(128, 128, 128, 0.2)"),
+            name="Prediction Intervals",
+        )
+    )
+
+    # Previsões
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(len(y_test))),
+            y=y_pred,
+            mode="lines",
+            line=dict(color="red"),
+            name="Prediction MidPoint",
+        )
+    )
+
+    fig.update_layout(
+        title="Interval Prediction",
+        xaxis_title="Sample",
+        yaxis_title="Value",
+        legend=dict(title="Metric"),
+        width=width,
+        height=height,
+    )
+
+    return fig.show(fig_type)

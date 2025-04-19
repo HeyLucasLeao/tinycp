@@ -95,17 +95,14 @@ class BinaryMarginalConformalClassifier(BaseConformalClassifier):
             # Use predict_proba for training data
             self.decision_function_ = self.learner.predict_proba(X)
 
-        self.n = len(self.decision_function_)
-
         self.calibration_layer.fit(self.decision_function_, y)
 
         y_prob, _ = self.calibration_layer.predict_proba(self.decision_function_)
 
-        y_prob = y_prob[np.arange(self.n), y]
+        y_prob = y_prob[np.arange(len(y)), y]
 
         self.hinge = self.generate_non_conformity_score(y_prob)
-
-        self.y = y
+        self.n = len(y)
 
         return self
 
@@ -114,6 +111,13 @@ class BinaryMarginalConformalClassifier(BaseConformalClassifier):
         Compute the q-hat value based on the nonconformity scores and the quantile level.
         """
         return np.quantile(ncscore, q_level, method="higher")
+
+    def _compute_q_level(self, n, alpha=None):
+        """
+        Compute the quantile level based on the number of samples and significance level.
+        """
+        alpha = self._get_alpha(alpha)
+        return np.ceil((n + 1) * (1 - alpha)) / n
 
     def _compute_set(self, ncscore, qhat):
         """
