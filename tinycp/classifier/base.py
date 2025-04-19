@@ -325,20 +325,19 @@ class BaseConformalClassifier(ABC):
         """
         Compute the coverage rate from conformal prediction.
 
-        Parameters:
-        X: array-like of shape (n_samples, n_features)
-            Input features
-        y: array-like of shape (n_samples,)
-            True labels
-        alpha: float, optional
-            Significance level (1 - desired coverage)
-        iterations: int, default=100
-            Number of trials to run
-        random_state: int, optional
-            Random seed for reproducibility
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Input features.
+        y : array-like of shape (n_samples,)
+            True labels.
+        alpha : float, optional
+            Significance level (1 - desired coverage). If None, the default value of self.alpha is used.
 
-        Returns:
-        float: Average coverage rate across all iterations
+        Returns
+        -------
+        float
+            The average coverage rate, which represents the proportion of true labels covered by the prediction sets.
         """
 
         alpha = self._get_alpha(alpha)
