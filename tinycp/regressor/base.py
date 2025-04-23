@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from sklearn.metrics import mean_absolute_error
 
 
-class BaseRegressor(ABC):
+class BaseConformalRegressor(ABC):
     """
     BaseRegressor
 
@@ -113,22 +113,62 @@ class BaseRegressor(ABC):
 
         return self._compute_qhat(self.ncscore, q_level)
 
-    def _coverage_rate(self, X, y, alpha=None):
+    def _coverage_rate(self, y, y_pred):
         """
-        Evaluate coverage of prediction intervals on test data.
+        Evaluate coverage of prediction intervals.
 
-        Parameters:
-        - X_test: test feature matrix
-        - y_test: test target vector
-
-        Returns:
-        - coverage: proportion of test points within prediction intervals
         """
-        alpha = self._get_alpha(alpha)
-        y_pred = self.predict_interval(X, alpha)
+
         coverages = (y >= y_pred[:, 0]) & (y <= y_pred[:, 1])
 
         return np.mean(coverages)
+
+    def _interval_width_mean(self, y_pred):
+        """
+        Calculates the mean width of the prediction intervals.
+        """
+        widths = y_pred[:, 1] - y_pred[:, 0]
+        return np.mean(widths)
+
+    def _mwi_score(self, y, y_pred, alpha):
+        """
+        Calculate the Winkler interval score for prediction intervals.
+
+        If the observation falls outside the prediction interval, the score increases
+        with the distance from the interval bounds.
+
+        If the observation falls inside the prediction interval, the score depends on
+        the width of the interval (narrower intervals are better).
+
+        Parameters:
+        ----------
+        y : array-like
+            True target values.
+        y_pred : array-like
+            Prediction intervals, where each row contains [lower_bound, upper_bound].
+        alpha : float
+            Significance level, where (1 - alpha) is the desired coverage.
+
+        Returns:
+        -------
+        float
+            The mean Winkler interval score.
+        """
+
+        # Extract lower and upper bounds of the intervals
+        lower, upper = y_pred[:, 0], y_pred[:, 1]
+
+        # Calculate the width of the intervals
+        width = upper - lower
+
+        # Calculate penalties for predictions below the lower bound
+        penalty_lower = 2 / alpha * (lower - y) * (y < lower)
+
+        # Calculate penalties for predictions above the upper bound
+        penalty_upper = 2 / alpha * (y - upper) * (y > upper)
+
+        # Return the mean Winkler interval score
+        return np.mean(width + penalty_lower + penalty_upper)
 
     def predict(self, X_test, alpha=None):
         """
@@ -140,24 +180,31 @@ class BaseRegressor(ABC):
 
         return np.sum(y_pred, axis=1) / 2
 
-    def interval_width_mean(self, X):
-        """
-        Calcula a amplitude média dos intervalos de predição.
-
-        Parâmetros:
-        intervals (numpy.ndarray): Um array contendo os intervalos de predição,
-                                    onde cada linha representa [limite_inferior, limite_superior].
-
-        Retorna:
-        float: A amplitude média dos intervalos.
-        """
-        y_pred = self.predict_interval(X)
-        widths = y_pred[:, 1] - y_pred[:, 0]
-        return np.mean(widths)
-
     def evaluate(self, X, y, alpha=None):
+        """
+        Evaluate the performance the regressor on the given dataset.
+        Parameters:
+            X:
+                The input features for the evaluation dataset.
+            y:
+                The true target values corresponding to the input features.
+            alpha:
+                Significance level for prediction intervals. If None, the regressor's default alpha is used.
+        Returns:
+            A dictionary containing the following evaluation metrics:
+            - "total" (int): The total number of samples in the dataset.
+            - "alpha" (float): The significance level used for evaluation.
+            - "coverage_rate" (float): The coverage rate of the prediction intervals.
+            - "interval_width_mean" (float): The mean width of the prediction intervals.
+            - "mwis" (float): The Mean Weighted Interval Score (MWIS).
+            - "mae" (float): The Mean Absolute Error (MAE) of the predictions.
+            - "mbe" (float): The Mean Bias Error (MBE) of the predictions.
+            - "mse" (float): The Mean Squared Error (MSE) of the predictions.
+        """
 
         alpha = self._get_alpha(alpha)
+        y_pred = self.predict(X, alpha)
+        y_pred_intervals = self.predict_interval(X, alpha)
 
         # Helper function for rounding
         def rounded(value):
@@ -165,19 +212,22 @@ class BaseRegressor(ABC):
 
         # Metrics calculation
         total = len(X)
-        coverage_rate = rounded(self._coverage_rate(X, y, alpha))
-        interval_width_mean = rounded(self.interval_width_mean(X))
-        y_pred = self.predict(X, alpha)
+        coverage_rate = rounded(self._coverage_rate(y, y_pred_intervals))
+        interval_width_mean = rounded(self._interval_width_mean(y_pred_intervals))
+        mwi_score = rounded(self._mwi_score(y, y_pred_intervals, alpha))
         mae = rounded(mean_absolute_error(y, y_pred))
         mbe = rounded(np.mean(y_pred - y))
+        mse = rounded(np.mean((y_pred - y) ** 2))
 
         results = {
             "total": total,
             "alpha": alpha,
             "coverage_rate": coverage_rate,
             "interval_width_mean": interval_width_mean,
+            "mwis": mwi_score,
             "mae": mae,
             "mbe": mbe,
+            "mse": mse,
         }
 
         return results

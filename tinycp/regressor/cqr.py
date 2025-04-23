@@ -1,13 +1,12 @@
 from sklearn.base import BaseEstimator
 import numpy as np
-from typing import List
-from .base import BaseRegressor
+from .base import BaseConformalRegressor
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 
-class ConformalizedQuantileRegressor(BaseRegressor):
+class ConformalizedQuantileRegressor(BaseConformalRegressor):
     """
     A conformalized quantile regressor that provides valid prediction intervals
     using a specified quantile regression model as the learner. It ensures statistical validity
@@ -22,7 +21,6 @@ class ConformalizedQuantileRegressor(BaseRegressor):
         self,
         learner: BaseEstimator,
         alpha: float = 0.05,
-        quantiles: List[float] = [0.05, 0.95],
     ):
         """
         Initializes the conformalized regressor with a specified learner and significance level.
@@ -33,21 +31,25 @@ class ConformalizedQuantileRegressor(BaseRegressor):
         alpha : float, default=0.05
             The significance level applied in the regressor.
         """
-        self.quantiles = quantiles
         super().__init__(learner, alpha)
 
     def fit(self, X, y, oob=False):
         """
         Fit the conformalized regressor by calculating nonconformity scores.
 
-        Parameters:
-        - X: Training feature matrix
-        - y: Training target vector
-        - quantiles: List of quantiles for prediction intervals
-        - oob: Whether to use out-of-bag predictions (if supported by the learner)
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training feature matrix.
+        y : array-like of shape (n_samples,)
+            Training target vector.
+        oob : bool, default=False
+            Whether to use out-of-bag predictions (if supported by the learner).
 
-        Returns:
-        - self: The fitted conformalized regressor
+        Returns
+        -------
+        self : object
+            The fitted conformalized regressor.
         """
         if X is None or y is None:
             raise ValueError(
@@ -59,12 +61,15 @@ class ConformalizedQuantileRegressor(BaseRegressor):
                 raise ValueError(
                     "OOB predictions are not available for the provided learner."
                 )
+
             # Use out-of-bag predictions if available
             self.decision_function_ = self.learner.predict(
-                X, quantiles=self.quantiles, oob_score=True
+                X, quantiles=[self.alpha / 2, 1 - self.alpha / 2], oob_score=True
             )
         else:
-            self.decision_function_ = self.learner.predict(X, quantiles=self.quantiles)
+            self.decision_function_ = self.learner.predict(
+                X, quantiles=[self.alpha / 2, 1 - self.alpha / 2]
+            )
 
         self.n = len(self.decision_function_)
         self.ncscore = np.maximum(
