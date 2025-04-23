@@ -11,11 +11,11 @@ from tinycp.classifier.class_conditional import (
 
 class TestClassifiers(unittest.TestCase):
     def setUp(self):
-        weights = [0.2, 0.8]
+        weights = [0.4, 0.6]
         seed = 42
 
         X, y = make_classification(
-            n_samples=1000,
+            n_samples=1500,
             n_features=20,
             n_informative=2,
             weights=weights,
@@ -24,10 +24,10 @@ class TestClassifiers(unittest.TestCase):
         )
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=seed
+            X, y, test_size=0.2, random_state=seed, stratify=y
         )
         X_train, X_calib, y_train, y_calib = train_test_split(
-            X_train, y_train, test_size=0.25, random_state=seed
+            X_train, y_train, test_size=0.25, random_state=seed, stratify=y_train
         )
 
         self.X_train = X_train
@@ -50,16 +50,16 @@ class TestClassifiers(unittest.TestCase):
         self.assertTrue(0 < classifier.alpha <= 0.2)
 
         y_proba = classifier.predict_proba(self.X_test)
-        self.assertEqual(y_proba.shape, (200, 2))
+        self.assertEqual(y_proba.shape, (self.X_test.shape[0], 2))
 
         prediction_set = classifier.predict_set(self.X_test)
-        self.assertEqual(prediction_set.shape, (200, 2))
+        self.assertEqual(prediction_set.shape, (self.X_test.shape[0], 2))
 
         p_values = classifier.predict_p(self.X_test)
-        self.assertEqual(p_values.shape, (200, 2))
+        self.assertEqual(p_values.shape, (self.X_test.shape[0], 2))
 
         y_pred = classifier.predict(self.X_test)
-        self.assertEqual(y_pred.shape, (200,))
+        self.assertEqual(y_pred.shape, (self.X_test.shape[0],))
 
         eval_dict = classifier.evaluate(self.X_test, self.y_test)
         self.assertTrue(isinstance(eval_dict, dict))
@@ -73,16 +73,16 @@ class TestClassifiers(unittest.TestCase):
         self.assertTrue(0 < classifier.alpha <= 0.2)
 
         y_proba = classifier.predict_proba(self.X_test)
-        self.assertEqual(y_proba.shape, (200, 2))
+        self.assertEqual(y_proba.shape, (self.X_test.shape[0], 2))
 
         prediction_set = classifier.predict_set(self.X_test)
-        self.assertEqual(prediction_set.shape, (200, 2))
+        self.assertEqual(prediction_set.shape, (self.X_test.shape[0], 2))
 
         p_values = classifier.predict_p(self.X_test)
-        self.assertEqual(p_values.shape, (200, 2))
+        self.assertEqual(p_values.shape, (self.X_test.shape[0], 2))
 
         y_pred = classifier.predict(self.X_test)
-        self.assertEqual(y_pred.shape, (200,))
+        self.assertEqual(y_pred.shape, (self.X_test.shape[0],))
 
         eval_dict = classifier.evaluate(self.X_test, self.y_test)
         self.assertTrue(isinstance(eval_dict, dict))
@@ -96,16 +96,16 @@ class TestClassifiers(unittest.TestCase):
         self.assertTrue(0 < classifier.alpha <= 0.2)
 
         y_proba = classifier.predict_proba(self.X_test)
-        self.assertEqual(y_proba.shape, (200, 2))
+        self.assertEqual(y_proba.shape, (self.X_test.shape[0], 2))
 
         prediction_set = classifier.predict_set(self.X_test)
-        self.assertEqual(prediction_set.shape, (200, 2))
+        self.assertEqual(prediction_set.shape, (self.X_test.shape[0], 2))
 
         p_values = classifier.predict_p(self.X_test)
-        self.assertEqual(p_values.shape, (200, 2))
+        self.assertEqual(p_values.shape, (self.X_test.shape[0], 2))
 
         y_pred = classifier.predict(self.X_test)
-        self.assertEqual(y_pred.shape, (200,))
+        self.assertEqual(y_pred.shape, (self.X_test.shape[0],))
 
         eval_dict = classifier.evaluate(self.X_test, self.y_test)
         self.assertTrue(isinstance(eval_dict, dict))
@@ -119,16 +119,16 @@ class TestClassifiers(unittest.TestCase):
         self.assertTrue(0 < classifier.alpha <= 0.2)
 
         y_proba = classifier.predict_proba(self.X_test)
-        self.assertEqual(y_proba.shape, (200, 2))
+        self.assertEqual(y_proba.shape, (self.X_test.shape[0], 2))
 
         prediction_set = classifier.predict_set(self.X_test)
-        self.assertEqual(prediction_set.shape, (200, 2))
+        self.assertEqual(prediction_set.shape, (self.X_test.shape[0], 2))
 
         p_values = classifier.predict_p(self.X_test)
-        self.assertEqual(p_values.shape, (200, 2))
+        self.assertEqual(p_values.shape, (self.X_test.shape[0], 2))
 
         y_pred = classifier.predict(self.X_test)
-        self.assertEqual(y_pred.shape, (200,))
+        self.assertEqual(y_pred.shape, (self.X_test.shape[0],))
 
         eval_dict = classifier.evaluate(self.X_test, self.y_test)
         self.assertTrue(isinstance(eval_dict, dict))

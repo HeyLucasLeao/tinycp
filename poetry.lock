@@ -1024,47 +1024,6 @@ files = [
 cffi = {version = "*", markers = "implementation_name == \"pypy\""}
 
 [[package]]
-name = "quantile-forest"
-version = "1.4.0"
-description = "Quantile regression forests compatible with scikit-learn."
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "quantile_forest-1.4.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:df9894db26aff3b2ba667e4c9e46ddbe20a78d8faf7352e38d62a1d1e43ef535"},
-    {file = "quantile_forest-1.4.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:98f4607cfe82413f9c1039f8b876d3230e3caa465539fb2922fcd952c6f29519"},
-    {file = "quantile_forest-1.4.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:2b5ae3e6ed464e32390d2a3d24631376ac06b87ba47d1ac900fe567b5e9bc109"},
-    {file = "quantile_forest-1.4.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2fef4e681c5b35087279915ff837f8d87629d1abbcadaa7eeff118c715dd3063"},
-    {file = "quantile_forest-1.4.0-cp310-cp310-win_amd64.whl", hash = "sha256:a09f1f34052d10a84a19aadc1d0845116d54116bdec2651121c970297fe440d8"},
-    {file = "quantile_forest-1.4.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:36959a1412b7e2fcb28a5731fbaa59c60ac96112bba25ea2171e1b6f037f5542"},
-    {file = "quantile_forest-1.4.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:434f2f29a87eef5629d1e95b19b75f4fef50acc5ecd6fb3fc9681268339c3c07"},
-    {file = "quantile_forest-1.4.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:32ea7dd48597670778fe2ec0937250bf3563dc3639e5b9bdcf5fac47d32e22eb"},
-    {file = "quantile_forest-1.4.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:17b2dfd5e192a6e3a97838c6c09e0b0155c129eb929f72df481ea3f9a46b5d67"},
-    {file = "quantile_forest-1.4.0-cp311-cp311-win_amd64.whl", hash = "sha256:461f035b18421a8b6f77b89d704f51580fe390c716d16609093161cbf7c71c9a"},
-    {file = "quantile_forest-1.4.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:88d6ef65bedcdd0972b7deab4d1af0dbe2fffa90ce3ff41885d1f098d2ed7aaa"},
-    {file = "quantile_forest-1.4.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:b4fe613ecf7e17c279ca07b751f3cede2f00d31aca5826be93de94df66472a76"},
-    {file = "quantile_forest-1.4.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:691fc2a3da65f85bcfb82b8e7f45595ec67f9967236a2249186a5ac0ec1a4eaa"},
-    {file = "quantile_forest-1.4.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:696b3eae341fe29ed6c24c07bbf84828f316764b86f8226cb5128e383a3fcc1a"},
-    {file = "quantile_forest-1.4.0-cp312-cp312-win_amd64.whl", hash = "sha256:afe140e6b0df44a02f287b7ec8a7299f2c1ffba874d246561cb4df959e16468e"},
-    {file = "quantile_forest-1.4.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:22d7902773d023d3f2a3c893fc6cebe0099b5a80ad211f4e0ab2949232da2920"},
-    {file = "quantile_forest-1.4.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:a626c9199e95e2a7d4ba6cf0bf3725e4b567445e651288d4c0467a8af9c53f35"},
-    {file = "quantile_forest-1.4.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:8ade4e354464ea46e1292c1761896fd135442df4a62380fb4df2a7fb62eb991b"},
-    {file = "quantile_forest-1.4.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4f9d5999e47c543063403b2ee559281b7ef0099114fc545ce6320bfbbff589bc"},
-    {file = "quantile_forest-1.4.0-cp313-cp313-win_amd64.whl", hash = "sha256:fb636b17674969638d09938be0ec72138239cb1d2065f7467333c32ab1214ce0"},
-    {file = "quantile_forest-1.4.0-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:eb7742836ec6d4a0aafcfb957545847711c1e02342833c4378cc3ba6309a8c1a"},
-    {file = "quantile_forest-1.4.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:6fe502b67c5e9376d888ee2b688bb43027a79faff43d5a41d4249629861f2817"},
-    {file = "quantile_forest-1.4.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:6e036183cd7369f3943838cbe774a2f0546d7676ee5de236177806f8753f5245"},
-    {file = "quantile_forest-1.4.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b2100499d6702a4fcfb2e03a112a3382ffee88200ef19f8b6bf3c006e2ca5746"},
-    {file = "quantile_forest-1.4.0-cp39-cp39-win_amd64.whl", hash = "sha256:1707def549e0a756950e068c06e5e2000dbaec84318f3878a076d6b971eab042"},
-    {file = "quantile_forest-1.4.0.tar.gz", hash = "sha256:1d0edf8b2f1c4b7d11c940cf1e5740a5381e1d250e5db0feea82d9282c52dab5"},
-]
-
-[package.dependencies]
-numpy = ">=1.23"
-scikit-learn = ">=1.5"
-scipy = ">=1.4"
-
-[[package]]
 name = "referencing"
 version = "0.35.1"
 description = "JSON Referencing + Python"
@@ -1471,4 +1430,4 @@ plot = ["kaleido", "plotly"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "515e8516557aa949a6aaf0817adca24d63e351dd1415835d36b4b5fedd64943d"
+content-hash = "108383e8df29d7c33345b4c0d48821aa55c7b1340282850d055355f5e0a16934"
