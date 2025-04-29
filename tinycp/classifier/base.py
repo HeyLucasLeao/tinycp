@@ -384,13 +384,10 @@ class BaseConformalClassifier(ABC):
         def rounded(value):
             return np.round(value, 3)
 
-        # Predictions and probabilities
         y_prob = self.predict_proba(X)
         y_pred = self.predict(X, alpha)
         predict_set = self.predict_set(X, alpha)
-
-        # Metrics calculation
-        total = len(X)
+        total = X.shape[0] if hasattr(X, "shape") else len(X)
         coverage_rate = rounded(self._coverage_rate(X, y, alpha))
         one_c = rounded(np.mean([np.sum(p) == 1 for p in predict_set]))
         avg_c = rounded(np.mean([np.sum(p) for p in predict_set]))
