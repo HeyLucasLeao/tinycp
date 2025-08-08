@@ -1,9 +1,9 @@
-from sklearn.base import BaseEstimator
+from sklearn.base import RegressorMixin, BaseEstimator
 import numpy as np
 from .base import BaseConformalRegressor
 
 
-class ConformalizedRegressor(BaseConformalRegressor):
+class ConformalizedRegressor(RegressorMixin, BaseEstimator, BaseConformalRegressor):
     """
     ConformalizedRegressor
     This class implements a conformalized regressor that provides valid prediction intervals

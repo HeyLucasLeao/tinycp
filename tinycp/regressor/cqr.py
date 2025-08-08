@@ -1,4 +1,4 @@
-from sklearn.base import BaseEstimator
+from sklearn.base import RegressorMixin, BaseEstimator
 import numpy as np
 from .base import BaseConformalRegressor
 import warnings
@@ -6,7 +6,9 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 
-class ConformalizedQuantileRegressor(BaseConformalRegressor):
+class ConformalizedQuantileRegressor(
+    RegressorMixin, BaseEstimator, BaseConformalRegressor
+):
     """
     A conformalized quantile regressor that provides valid prediction intervals
     using a specified quantile regression model as the learner. It ensures statistical validity
