@@ -6,7 +6,6 @@ import numpy as np
 import sklearn.metrics
 from abc import ABC, abstractmethod
 
-# Suprimir o aviso específico
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
@@ -58,7 +57,6 @@ class BaseConformalClassifier(ABC):
         self.calibration_layer = VennAbers()
         self.decision_function_ = None
 
-        # Ensure the learner is fitted
         check_is_fitted(learner)
 
         if learner.n_classes_ > 2:

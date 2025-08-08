@@ -1,4 +1,4 @@
-from sklearn.base import BaseEstimator
+from sklearn.base import ClassifierMixin, BaseEstimator
 import numpy as np
 import warnings
 from .base import BaseConformalClassifier
@@ -6,7 +6,9 @@ from .base import BaseConformalClassifier
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="venn_abers")
 
 
-class BinaryClassConditionalConformalClassifier(BaseConformalClassifier):
+class BinaryClassConditionalConformalClassifier(
+    ClassifierMixin, BaseEstimator, BaseConformalClassifier
+):
     """
     A modrian class conditional conformal classifier methodology utilizing a classifier as the underlying learner.
     This class is inspired by the WrapperClassifier classes from the Crepes library.
