@@ -1,3 +1,8 @@
+# Copyright (c) 2024-2025 Lucas Leão
+# tinyCP - A small toolbox for conformal prediction
+# Licensed under the MIT License
+
+
 from sklearn.utils.validation import check_is_fitted
 from sklearn.base import BaseEstimator
 import numpy as np
