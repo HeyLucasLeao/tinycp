@@ -1,3 +1,8 @@
+# Copyright (c) 2024-2025 Lucas Leão
+# tinyCP - A small toolbox for conformal prediction
+# Licensed under the MIT License
+
+
 import numpy as np
 from typing import List
 import plotly.express as px
